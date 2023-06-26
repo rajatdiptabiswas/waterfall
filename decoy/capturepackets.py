@@ -21,6 +21,10 @@ connections={}
 tlsconnections={}
 cache = {}
 
+import logging
+log = logging.getLogger(__name__)
+logging.basicConfig(format='%(asctime)s [%(levelname)s] <%(filename)s> %(message)s', level=logging.DEBUG)
+
 def get_packet(payload):
     global cache
 
@@ -55,6 +59,8 @@ class Phase1Runner(threading.Thread):
         global connections, tlsconnections
         
         # print("Processing Packet")
+        log.debug("Processing Packet")
+
         ckey = (socket.inet_ntoa(payload[12:16]), socket.inet_ntoa(payload[16:20]), struct.unpack('!H', payload[20:22])[0], struct.unpack('!H', payload[22:24])[0])
 
         if ord(payload[9]) == 6:
@@ -76,6 +82,7 @@ class Phase1Runner(threading.Thread):
                         tlsconnections[ckey].addTLSPacket(p[TCP].payload)
                     else:
                         # print("Creating TLS Connection")
+                        log.debug("Creating TLS Connection")
                         tlsconnections[ckey] = TLSConnection.TLSConnection()
                         tlsconnections[ckey].addTLSPacket(p[TCP].payload)
 
@@ -114,12 +121,14 @@ def print_and_accept(pkt):
                     datasize = len(str(w.tcp.data))
 
                     if datasize>0:
-                        #print 'DATA TO REPLACE'
+                        # print 'DATA TO REPLACE'
+                        log.debug('DATA TO REPLACE')
 
                         newpayload = tlsconnections[ckey].getnewpayload(datasize-7, w.tcp.seq)
 
                         if len(newpayload)>0:
-                            print 'SENDING DATA',datetime.datetime.now()
+                            # print 'SENDING DATA',datetime.datetime.now()
+                            log.debug('SENDING DATA {}'.format(datetime.datetime.now()))
 
                         padsize = datasize-7-len(newpayload)
 
@@ -138,7 +147,6 @@ def print_and_accept(pkt):
         traceback.print_exc(file=sys.stderr)
 
     pkt.accept()
-
 
 
 nfqueue = NetfilterQueue()
