@@ -450,8 +450,10 @@ class Waterfall(ClientFactory):
 
 
 def main():
-    logging.root.setLevel(logging.DEBUG)
-    logging.root.addHandler(logging.StreamHandler())
+    # logging.root.setLevel(logging.DEBUG)
+    # logging.root.addHandler(logging.StreamHandler())
+
+    logging.basicConfig(format='%(asctime)s [%(levelname)s] <%(filename)s> %(message)s', level=logging.DEBUG)
 
     waterfall = Waterfall()
 
