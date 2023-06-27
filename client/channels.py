@@ -1,6 +1,13 @@
 import base64
 import math
 
+'''
+Each channel class defines specific hosts, ports, and other properties related to a communication channel (Amazon, Google, Wikipedia).
+The `calculate_sendable_covert_data` method determines how much covert data can be sent based on the size of the overt data.
+The `wrap_message` method wraps the provided data into an appropriate HTTP GET request for the corresponding host.
+
+sendable covert data = 3/4 * overt data
+'''
 
 class AmazonChannel:
     # host = '54.239.25.192'
