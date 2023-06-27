@@ -39,7 +39,7 @@ class ProxyUpstreamProtocol(protocol.Protocol):
         self.proxy.transport.write(data)
 
     def connectionLost(self, *args):
-        # log.debug("Proxy remote connection closed")
+        log.debug("Proxy remote connection closed")
         self.connected = False
         self.proxy.lose_connection()
 
@@ -88,11 +88,11 @@ class ProxyServerProtocol(basic.LineReceiver):
 
         if self.ous.is_overt_address(self.address[0]):
             # print("YES {}".format(self.address[0]))
-            # log.debug("Starting covert proxy session")
+            log.debug("Starting covert proxy session")
             self.start_proxy('127.0.0.1', self.ous.proxy_handler_port)
         else:
-            # log.debug("Starting vanilla proxy session")
-            # print("NO  {}".format(self.address[0]))
+            # print("NO {}".format(self.address[0]))
+            log.debug("Starting vanilla proxy session")
             self.start_proxy(*self.address)
 
     def start_proxy(self, host, port):
@@ -106,7 +106,7 @@ class ProxyServerProtocol(basic.LineReceiver):
         self.transport.write('HTTP/1.1 200 OK\r\n\r\n')
 
     def connectionLost(self, *args):
-        # log.debug("Proxy connection closed")
+        log.debug("Proxy connection closed")
         self.connected = False
         if self.remote is not None:
             self.remote.lose_connection()
@@ -134,7 +134,8 @@ class OvertRequest(http.Request):
         # Ideally only get requested be cached, but then I have to be able to get the response back from
         # the channel to have something to send back in response
         if use_as_covert and cache_key not in request_cache:
-            print("Populating Cache", cache_key)
+            # print("Populating Cache", cache_key)
+            log.debug("Populating Cache {}".format(cache_key))
             return request_cache.populate_cache(self).addCallback(self.cache_response_received)
 
         response_size = len(request_cache[cache_key])
@@ -153,7 +154,7 @@ class OvertRequest(http.Request):
 
 
         # Respond the request from cache
-        # log.debug("Responding from cache for {}".format(self.uri))
+        log.debug("Responding from cache for {}".format(self.uri))
         self.transport.write(request_cache[cache_key])
 
     def build_http_request(self, headers=None):
@@ -186,10 +187,11 @@ class RequestCache:
 
         def connectionLost(self, reason=None):
             # print("Connection Lost", reason)
+            log.debug("Connection Lost {}".format(reason))
             pass
             
         def send_request(self):
-            # log.debug("Sending cache request for {}".format(self.factory.request.uri))
+            log.debug("Sending cache request for {}".format(self.factory.request.uri))
             # request = self.factory.request.build_http_request({'connection': 'close'})
             request = self.factory.request.build_http_request()
             self.transport.write(request)
