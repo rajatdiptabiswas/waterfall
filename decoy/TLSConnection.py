@@ -28,6 +28,10 @@ from scapy_ssl_tls.ssl_tls_crypto import TLSPRF
 import uuid
 
 
+import logging
+log = logging.getLogger(__name__)
+
+
 def int_to_str(int_):
     hex_ = "%x" % int_
     return binascii.unhexlify("%s%s" % ("" if len(hex_) % 2 == 0 else "0", hex_))
@@ -100,7 +104,9 @@ class TLSConnection:
 
         target_len=128
         blockkey=self.prf.get_bytes(pshare,'key expansion',self.serverrandom+self.clientrandom,num_bytes=target_len)
-        print [ord(i) for i in blockkey]
+        # print [ord(i) for i in blockkey]
+        log.debug('`[ord(i) for i in blockkey]` {}'.format([ord(i) for i in blockkey]))
+        
         i = 0
         self.client_write_MAC_key = blockkey[i:i+self.mac_key_length]
         i += self.mac_key_length
@@ -126,7 +132,8 @@ class TLSConnection:
         #print [ord(i) for i in self.serverrandom]
         #print [ord(i) for i in self.ivkey]
 
-        print 'Keys are in place'
+        # print 'Keys are in place'
+        log.debug('Keys are in place')
 
     def initDecryptor(self):
         # self.mode= modes.CBC(self.server_write_IV)
@@ -147,12 +154,25 @@ class TLSConnection:
         assert len(tag) == 16
         assert len(cdata) == len(cipherdata) - 16 -8
         # self.mode = modes.GCM(self.server_write_IV, tag=tag)
+        
         # print("DECRYPTING")
+        log.debug('DECRYPTING')
+        
         # print("NONCE", nonce)
+        # log.debug('NONCE {}'.format(nonce))
+        
         # print("DATA", cdata)
+        # log.debug('DATA {}'.format(cdata))
+        
         # print("TAG", tag)
-        # # print("WRITE_IV", self.server_write_IV)
+        # log.debug('TAG {}'.format(tag))
+        
+        # print("WRITE_IV", self.server_write_IV)
+        # log.debug("WRITE IV {}".format(self.server_write_IV))
+        
         # print("WRITE KEY", self.server_write_key)
+        # log.debug("WRITE KEY {}".format(self.server_write_key))
+        
         nonce = self.get_nonce(nonce)
         try:
             self.mode = modes.GCM(nonce, tag=tag)
@@ -194,7 +214,9 @@ class TLSConnection:
         while flag:
 
             cmd= struct.unpack('>c',self.datacarry[:1])[0]
-            print 'GET COMMAND',cmd
+            # print 'GET COMMAND',cmd
+            log.debug('GET COMMAND {}'.format(cmd))
+
             size=struct.unpack('>I',self.datacarry[1:5])[0]
             if size+self.headersize<=len(self.datacarry):
 
@@ -223,8 +245,9 @@ class TLSConnection:
             return
         reg=re.search(r'/~milad/(\S+)',pkt)
         #print 'raw', pkt
-        if reg:
+        log.debug('raw {}'.format(pkt))
 
+        if reg:
             dec=base64.b64decode( reg.group(1))
             self.addDATA(dec)
 
@@ -253,13 +276,16 @@ class TLSConnection:
                 ret+=data[:size]
 
                 #print 'DATA LARGER'
+                log.debug('DATA LARGER')
+
                 self.replacepayloads.insert(0,data[size:])
                 size=0
 
             else:
                 ret+=data
                 size-=len(data)
-        print 'getting new packet',datetime.datetime.now()
+        # print 'getting new packet',datetime.datetime.now()
+        log.debug('Getting new packet {}'.format(datetime.datetime.now()))
 
         self.replacedpackets[seq]=ret
         return ret
@@ -274,13 +300,19 @@ class TLSConnection:
 
         if scapy_ssl_tls.ssl_tls.TLSServerHello in mtls:
             self.serverrandom= str(mtls[scapy_ssl_tls.ssl_tls.TLSServerHello])[2:34]
-            print 'Server Random Found'
+            # print 'Server Random Found'
+            log.debug('Server Random Found')
+
         if scapy_ssl_tls.ssl_tls.TLSClientHello in mtls:
             self.clientrandom= str(mtls[scapy_ssl_tls.ssl_tls.TLSClientHello])[2:34]
-            #mtls[scapy_ssl_tls.ssl_tls.TLSClientHello].show2()
-            #print [ord(i) for i in str(mtls[scapy_ssl_tls.ssl_tls.TLSClientHello])[:40]]
-            print [ord(i) for i in self.clientrandom]
-            print 'Client Random Found'
+            
+            # mtls[scapy_ssl_tls.ssl_tls.TLSClientHello].show2()
+            # print [ord(i) for i in str(mtls[scapy_ssl_tls.ssl_tls.TLSClientHello])[:40]]
+            # print [ord(i) for i in self.clientrandom]
+            log.debug('`[ord(i) for i in self.clientrandom]` '.format([ord(i) for i in self.clientrandom]))
+            
+            # print 'Client Random Found'
+            log.debug('Client Random Found')
         if scapy_ssl_tls.ssl_tls.TLSServerKeyExchange in mtls:
             server_kex = mtls[scapy_ssl_tls.ssl_tls.TLSServerKeyExchange]
             a = server_kex[scapy_ssl_tls.ssl_tls.TLSServerECDHParams]
@@ -308,13 +340,19 @@ class TLSConnection:
             # ecdh=scapy_ssl_tls.ssl_tls.TLSServerECDHParams(str(mtls[scapy_ssl_tls.ssl_tls.TLSServerKeyExchange]))
             # self.serverpub=ecdh.p
             # print 'server public Found'
+            log.debug('Server Public Found')
+            
             # self.driveKeys()
 
         if self.candecrypt:
             # print 'decrypting '
+            log.debug('Decrypting...')
+            
             # mtls.show2()
             if scapy_ssl_tls.ssl_tls.TLSCiphertext in mtls:
                 # print 'decryptable'
+                log.debug('Decryptable')
+                
                 plain=self.decrypt(mtls[scapy_ssl_tls.ssl_tls.TLSCiphertext].data)
 
                 if mtls.records[0].content_type==23:
@@ -356,7 +394,8 @@ class TLSConnection:
                     else:
                         self.carry=self.carry[plen+5:]
                 except:
-                    print 'error' , len (self.carry), plen+5
+                    # print 'error' , len (self.carry), plen+5
+                    log.error('{} {}'.format(len(self.carry), plen+5))
             else:
                 flag=False
 
