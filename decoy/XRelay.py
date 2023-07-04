@@ -19,10 +19,32 @@ from ServerConnection import ProxyServer
 import struct
 import errno
 
+'''
+The code provided defines two classes: `RelayManager` and `Relay`. Here's a breakdown of each class:
+
+1. `RelayManager`:
+   - The `processCMD` method processes a command packet by sending it to the server connection.
+   - The `processDATA` method 
+   - The `autofetch` method 
+   - The `getnewpackets` method 
+   
+2. `Relay`:
+   - This class acts as a wrapper around the `RelayManager` class.
+   - The 
+   - 
+
+Overall, the `RelayManager` class handles the management of relay functionality, including handling commands, processing data, and fetching new packets. The `Relay` class serves as a convenient interface to access the functionality provided by the `RelayManager` class.
+'''
 
 class RelayManager():
+    '''
+    Manages the relay functionality.
+    '''
+    
     def __init__(self):
-
+        '''
+        Initializes the object and sets up the necessary attributes, including creating a `ProxyServer` object and connecting to a server.
+        '''
         self.server = ProxyServer(serv_addr)
         self.serverconnectionthread = threading.Thread(target=self.server.run).start()
 
@@ -38,11 +60,17 @@ class RelayManager():
 
 
     def processCMD(self,pkt,connid):
+        '''
+        Processes a command packet by sending it to the server connection.
+        '''
         with self.sendlock:
             self.conn.sendall(str(connid)+pkt)
 
 
     def processDATA(self,data):
+        '''
+        Processes incoming data by appending it to the `datacarry` attribute and extracting packets based on a specified header size.
+        '''
         self.datacarry+=data
 
         flag=True
@@ -64,6 +92,9 @@ class RelayManager():
 
 
     def autofetch(self):
+        '''
+        Continuously listens for incoming data from the server connection and processes it using the `processDATA` method.
+        '''
         while True:
             r,w,e=select.select([self.conn],[],[])
             if r :
@@ -73,18 +104,31 @@ class RelayManager():
 
 
     def getnewpackets(self,connid):
+        '''
+        Retrieves new packets for a given connection ID.
+        '''
         return self.connections.pop(connid,[])
 
 
 
-
 class Relay():
+    '''
+    Acts as a wrapper around the RelayManager class.
+    '''
+
     _manager=None
 
     def __init__(self):
+        '''
+        Initializes the object and starts a new thread for the `RelayManager`'s `autofetch` method.
+        '''
         if Relay._manager==None:
             Relay._manager= RelayManager()
             threading.Thread(target=Relay._manager.autofetch).start()
+
+    '''
+    The `__getattr__` and `__setattr__` methods are used to delegate attribute access and assignment to the underlying `RelayManager` object.
+    '''
 
     def __getattr__(self, item):
         return getattr(self._manager, item)
