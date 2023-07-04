@@ -88,11 +88,13 @@ class ProxyServerProtocol(basic.LineReceiver):
 
         if self.ous.is_overt_address(self.address[0]):
             # print("YES {}".format(self.address[0]))
-            log.debug("Starting covert proxy session")
+            log.debug("Overt address TRUE {} - Starting covert proxy session".format(self.address[0]))
+            # log.debug("Starting covert proxy session")
             self.start_proxy('127.0.0.1', self.ous.proxy_handler_port)
         else:
             # print("NO {}".format(self.address[0]))
-            log.debug("Starting vanilla proxy session")
+            log.debug("Overt address FALSE {} - Starting vanilla proxy session".format(self.address[0]))
+            # log.debug("Starting vanilla proxy session")
             self.start_proxy(*self.address)
 
     def start_proxy(self, host, port):
@@ -244,6 +246,7 @@ class RequestCache:
     def response_received(self, request_id, path, response):
         self._cache[path] = response
         # print('CACHE', path, len(response))
+        log.debug('Cache {} {}'.format(path, len(response)))
         d = self._pending_requests.pop(request_id)
         d.callback(response)
 
@@ -301,8 +304,9 @@ class OvertUserSimulator(object):
             self.browser.queue_url(self.overt_urls[self.overt_url_iterator])
             self.overt_url_iterator = (self.overt_url_iterator + 1) % len(self.overt_urls)
 
-        browser_loop = task.LoopingCall(_load_overt)
-        browser_loop.start(1)
+        # browser_loop = task.LoopingCall(_load_overt)
+        # browser_loop.start(1)
+        reactor.callLater(5, _load_overt)
 
     def add_overt(self, overt):
         self.overts.append(overt)
