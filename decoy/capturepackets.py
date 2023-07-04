@@ -23,7 +23,7 @@ cache = {}
 
 import logging
 log = logging.getLogger(__name__)
-logging.basicConfig(format='%(asctime)s [%(levelname)s] <%(module)s:%(funcName)s> %(message)s', level=logging.DEBUG)
+logging.basicConfig(format='%(asctime)s [%(levelname)s] <%(pathname)s:%(funcName)s> %(message)s', level=logging.DEBUG)
 
 def get_packet(payload):
     global cache

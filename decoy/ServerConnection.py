@@ -200,7 +200,7 @@ if __name__ == '__main__':
     logger.setLevel(logging.DEBUG)
     hdlr = logging.StreamHandler()
     hdlr.setLevel(logging.DEBUG)
-    hdlr.setFormatter(logging.Formatter('%(asctime)s (%(name)s) [%(levelname)s] <%(module)s:%(funcName)s> %(message)s'))
+    hdlr.setFormatter(logging.Formatter('%(asctime)s (%(name)s) [%(levelname)s] <%(pahtname)s:%(funcName)s> %(message)s'))
     logger.addHandler(hdlr)
 
 
