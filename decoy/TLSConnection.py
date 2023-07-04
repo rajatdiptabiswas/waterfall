@@ -44,6 +44,31 @@ def str_to_ec_point(ansi_str, ec_curve):
 
 
 class TLSConnection:
+    '''
+    Implemenets a TLS (Transport Layer Security) connection. It includes various attributes and methods related to TLS encryption and decryption.
+
+    Attributes:
+    - `carry`: A string used to store the received data.
+    - `serverrandom`, `clientrandom`: Strings representing the server and client random values.
+    - `serverpub`: String representing the server's public key.
+    - `replacepayloads`: A list to store replacement payloads.
+    - `masterkey`: A string representing the master secret key.
+    - `serverpubkey`: String representing the server's public key.
+    - `candecrypt`: A boolean indicating whether decryption is possible.
+    - `replacedpackets`: A dictionary to store replaced packets.
+    - `testlock`: A `threading.Lock` object used for thread synchronization.
+    - `mac_key_length`, `cipher_key_length`, `iv_length`: Integer values representing the lengths of different keys and initialization vectors.
+    - `encryptor`: Currently set to `None`. ?
+    - `datacarry`: A string used to store data that needs to be processed.
+    - `writemode`: Currently set to `None`. ?
+    - `writesecret`, `writekey`: Strings related to writing operations.
+    - `prf`: An instance of the `TLSPRF` class.
+    - `manager`: An instance of the `XRelay.Relay` class.
+    - `headersize`: An integer representing the size of headers.
+    - `connid`: A UUID representing the connection ID.
+    - `startreplace`: A boolean indicating whether the replacement process has started.
+    - Other various attributes related to TLS encryption and decryption.
+    '''
     def __init__(self):
         self.carry = ''
         self.serverrandom = ''
@@ -77,12 +102,23 @@ class TLSConnection:
         self.connid = uuid.uuid4().bytes
         self.startreplace = False
 
-
-
     def driveKeys(self):
+        '''
+        Responsible for generating and deriving encryption keys for the TLS connection. This method performs the necessary steps to establish encryption keys for the TLS connection based on the provided server public key, client private key, and random values.
+
+        1. It retrieves the elliptic curve (`secp256r1`) from the `ec_reg` registry.
+        2. It creates an elliptic curve key pair for the server using the `serverpub` value and the `str_to_ec_point` function.
+        3. It loads the client's private key pair from a file (`clientpriv`) using the `pickle` module.
+        4. It performs an elliptic curve Diffie-Hellman key exchange to derive the shared secret point.
+        5. It converts the shared secret point (`mk`) to a string representation using the `int_to_str` function.
+        6. It generates the pre-master secret (`pshare`) by applying the TLS Pseudorandom Function (PRF) to the shared secret, along with the labels 'master secret' and the concatenation of `clientrandom` and `serverrandom`.
+        7. It generates a block of key material (`blockkey`) by applying the TLS PRF to the pre-master secret, along with the labels 'key expansion' and the concatenation of `serverrandom` and `clientrandom`.
+        8. The key material is then split into different keys and IVs for the client and server, which are stored in various instance variables such as `client_write_MAC_key`, `server_write_MAC_key`, `client_write_key`, `server_write_key`, `client_write_IV`, and `server_write_IV`.
+        9. It initializes the decryptor by calling the `initDecryptor` method.
+        10. It prints a message indicating that the keys are in place.
+        '''
 
         #pk= ec.generate_private_key(ec.SECP256R1, backend)
-
 
         ec_curve = ec_reg.get_curve('secp256r1')
         server_keypair = ec.Keypair(ec_curve, pub= str_to_ec_point(self.serverpub,ec_curve))
@@ -91,12 +127,7 @@ class TLSConnection:
         secret_point = ec.ECDH(client_keypair).get_secret(server_keypair)
         mk = int_to_str(secret_point.x)
 
-
         pshare=self.prf.get_bytes(mk,'master secret',self.clientrandom+self.serverrandom,num_bytes=48)
-
-
-
-
 
         target_len=128
         blockkey=self.prf.get_bytes(pshare,'key expansion',self.serverrandom+self.clientrandom,num_bytes=target_len)
@@ -111,7 +142,6 @@ class TLSConnection:
         self.server_write_key = blockkey[i:i+self.cipher_key_length]
         i += self.cipher_key_length
 
-
         self.client_write_IV = blockkey[i:i+self.iv_length]
         i += self.iv_length
         self.server_write_IV = blockkey[i:i+self.iv_length]
@@ -119,14 +149,13 @@ class TLSConnection:
 
         self.httpcarry=''
 
-
-
         self.initDecryptor()
         #print [ord(i) for i in self.clientrandom]
         #print [ord(i) for i in self.serverrandom]
         #print [ord(i) for i in self.ivkey]
 
         print 'Keys are in place'
+
 
     def initDecryptor(self):
         # self.mode= modes.CBC(self.server_write_IV)
@@ -136,12 +165,33 @@ class TLSConnection:
         self.candecrypt=True
         pass
 
+
     def get_nonce(self, nonce=None):
         import struct
         nonce = nonce or struct.pack("!Q", self.ctx.nonce)
         return b"%s%s" % (self.server_write_iv, nonce)
 
+
     def decrypt(self,cipherdata):
+        '''
+        Used for decrypting cipher data in the TLS connection.
+
+        1. It takes the cipher data as input, which consists of the nonce, encrypted data, and the authentication tag.
+        2. It separates the nonce, encrypted data (`cdata`), and authentication tag (`tag`) from the cipher data.
+        3. It performs some assertions to validate the lengths of the tag and the encrypted data.
+        4. It retrieves the nonce value using the `get_nonce` method.
+        5. It initializes the AES-GCM mode of operation using the server's write key and the retrieved nonce and authentication tag.
+        6. It creates a cipher object using the AES-GCM algorithm and the initialized mode, using the `Cipher` class from the `cryptography` library.
+        7. It sets up a decryptor object using the created cipher.
+        8. It sets the `candecrypt` flag to `True` to indicate that decryption can be performed.
+        9. It asserts that `candecrypt` is `True`.
+        10. It decrypts the encrypted data using the decryptor's `update` method, and stores the result in `plaindata`.
+        11. It determines the padding length by extracting the last byte of `plaindata` as an ordinal value.
+        12. It removes the padding and the authentication tag from `plaindata` to obtain the decrypted data (`d`).
+        13. It returns the decrypted data.
+
+        In case an exception occurs during the decryption process, the method re-raises the exception.
+        '''
         ####
         nonce, cdata, tag = cipherdata[:8], cipherdata[8:-16], cipherdata[-16:]
         assert len(tag) == 16
@@ -188,18 +238,33 @@ class TLSConnection:
 
 
     def addDATA(self,data):
+        '''
+        Responsible for processing incoming data in the TLS connection. The method processes incoming data by extracting command and size information from `datacarry` and either handling the command immediately or storing the payload for further processing. If there is more data remaining in `datacarry`, the loop continues to process subsequent messages.
+
+        1. It takes the incoming data as input and appends it to the `datacarry` attribute.
+        2. It sets the `flag` variable to `True` to enter a loop.
+        3. Within the loop, it extracts the command and size information from the beginning of the `datacarry`.
+        4. It checks if there is enough data in `datacarry` to process a complete message based on the extracted size and the headersize.
+        5. If there is enough data, it performs the following steps:
+        - If the command is `'S'`, it extracts the payload from `datacarry` based on the size and headersize. It sets the `startreplace` flag to `True` and constructs a response message (`resp`) containing the payload.
+        - Otherwise, it calls the `processCMD` method of the `manager` object, passing the command and associated data to handle the command.
+        - If the size plus 5 (command + size bytes) equals the length of `datacarry`, it means that all the data has been processed, so it clears `datacarry` and sets `flag` to `False` to exit the loop.
+        - Otherwise, it updates `datacarry` by removing the processed data.
+        6. If there is not enough data to process a complete message, it sets `flag` to `False` to exit the loop.
+
+        `ServerConnection` has a function called `addDATA` as well which handles 'O', 'N', and 'Q' commands.
+        '''
+
         self.datacarry+=data
         flag=True
 
         while flag:
-
             cmd= struct.unpack('>c',self.datacarry[:1])[0]
             print 'GET COMMAND',cmd
             size=struct.unpack('>I',self.datacarry[1:5])[0]
             if size+self.headersize<=len(self.datacarry):
 
                 if cmd=='S':
-
                     newdata= self.datacarry[:size+self.headersize]
                     self.startreplace=True
                     #print newdata[5:],size,cmd
@@ -218,7 +283,16 @@ class TLSConnection:
             else:
                 flag=False
 
+
     def addHTTPpacket(self,pkt):
+        '''
+        The `addHTTPpacket` method is responsible for processing an HTTP packet. The method filters packets that contain `'/~milad'` and extracts the base64-encoded payload from them. It then passes the decoded payload to the `addDATA` method for further processing.
+
+        1. It checks if the provided `pkt` contains the substring `'/~milad'`. If not, it returns immediately without further processing.
+        2. It uses a regular expression to search for a pattern `/~milad/(\S+)` within the `pkt`. This pattern is expected to match a base64-encoded string after `/~milad/`.
+        3. If a match is found, the method decodes the matched string using base64 decoding.
+        4. It calls the `addDATA` method and passes the decoded string as input to further process the data.
+        '''
         if  not '/~milad' in pkt:
             return
         reg=re.search(r'/~milad/(\S+)',pkt)
@@ -230,20 +304,34 @@ class TLSConnection:
 
 
     def retrivepackets(self):
+        '''
+        The `retrievepackets` method retrieves new packets from the packet manager and adds them to the list of replace payloads. The method retrieves new packets from the packet manager and adds them to the list of replace payloads. These payloads will be used later during the processing of packets.
+
+        1. It calls the `getnewpackets` method of the packet manager and passes `self.connid` as an argument. This method retrieves new packets associated with the given connection ID.
+        2. The retrieved packets are then added to the `replacepayloads` list using the `extend` method. This list contains the payloads that will replace specific packets during processing.
+        '''
         self.replacepayloads.extend( self.manager.getnewpackets(self.connid))
 
 
-
-
     def getnewpayload(self,size,seq):
+        '''
+        The `getnewpayload` method retrieves a new payload of a specified size and sequence number. 
+
+        1. The method first calls the `retrivepackets` method, which retrieves new packets from the packet manager and adds them to the list of replace payloads.
+        2. If the specified sequence number (`seq`) is found in the `replacedpackets` dictionary, it means that the payload has already been replaced and stored. In this case, the method simply returns the stored payload.
+        3. If there are no replace payloads available in the `replacepayloads` list, an empty string is returned.
+        4. Otherwise, the method iterates through the replace payloads and appends them to the `ret` variable until either the desired size is reached or there are no more replace payloads left.
+        5. If a replace payload is larger than the remaining size needed (`size`), the method splits the payload, adds the appropriate portion to `ret`, and inserts the remaining portion back into the `replacepayloads` list.
+        6. Once the new payload is constructed, it is stored in the `replacedpackets` dictionary with the corresponding sequence number as the key.
+        7. Finally, the method returns the new payload.
+        '''
+
         self.retrivepackets()
         if seq in self.replacedpackets:
             return self.replacedpackets[seq]
 
-
         if len(self.replacepayloads)==0:
             return ''
-
 
         ret=''
 
@@ -265,11 +353,18 @@ class TLSConnection:
         return ret
 
 
-
-
-
-
     def processTLSpacket(self,pkt):
+        '''
+        The `processTLSpacket` method processes a TLS packet by extracting relevant information and performing decryption if applicable.
+
+        1. The method takes a packet (`pkt`) as input and creates a `TLS` object from it.
+        2. If a `TLSServerHello` object is present in the `TLS` object, the server random value is extracted and stored in `self.serverrandom`.
+        3. If a `TLSClientHello` object is present in the `TLS` object, the client random value is extracted and stored in `self.clientrandom`.
+        4. If a `TLSServerKeyExchange` object is present in the `TLS` object, the server key exchange parameters are extracted. The server's public key is obtained from the parameters and stored in `self.serverpub`. The secret point (premaster key) is computed using the client's private key and the server's public key.
+        5. The TLS security parameters are generated using the premaster key, client random, and server random. The server write key and IV are extracted from the security parameters and stored in `self.server_write_key` and `self.server_write_iv`, respectively. The `candecrypt` flag is set to `True` to indicate that decryption can be performed.
+        6. If the `candecrypt` flag is `True`, the method checks if a `TLSCiphertext` object is present in the `TLS` object. If it is, the ciphertext data is decrypted using the `decrypt` method.
+        7. If the decrypted plaintext corresponds to an HTTP packet (indicated by the content type), the `startreplace` flag is set to `True`, and the plaintext is processed as an HTTP packet by calling the `addHTTPpacket` method.
+        '''
         mtls=TLS(pkt)
 
         if scapy_ssl_tls.ssl_tls.TLSServerHello in mtls:
@@ -289,7 +384,6 @@ class TLSConnection:
             curve = ec_reg.get_curve('secp256r1')
             scapy_ssl_tls.ssl_tls_keystore.ECDHKeyStore(curve, ec.Point(curve, *point))
 
-
             # PREMASTER KEY
             ec_curve = ec_reg.get_curve('secp256r1')
             server_keypair = ec.Keypair(ec_curve, pub= str_to_ec_point(self.serverpub,ec_curve))
@@ -297,9 +391,7 @@ class TLSConnection:
             secret_point = ec.ECDH(client_keypair).get_secret(server_keypair)
             mk = int_to_str(secret_point.x) # masalan premaster key
 
-            sec_params = scapy_ssl_tls.ssl_tls_crypto.TLSSecurityParameters.from_pre_master_secret(self.prf, scapy_ssl_tls.ssl_tls.TLSCipherSuite.ECDHE_RSA_WITH_AES_128_GCM_SHA256,
-                                                                       mk, self.clientrandom,
-                                                                       self.serverrandom)
+            sec_params = scapy_ssl_tls.ssl_tls_crypto.TLSSecurityParameters.from_pre_master_secret(self.prf, scapy_ssl_tls.ssl_tls.TLSCipherSuite.ECDHE_RSA_WITH_AES_128_GCM_SHA256, mk, self.clientrandom, self.serverrandom)
             sym_keystore = sec_params.server_keystore        
             # print("SYYYYYN JEEEEEET", sym_keystore.key)                                                               
             self.server_write_key = sym_keystore.key
@@ -323,20 +415,26 @@ class TLSConnection:
                     self.addHTTPpacket(plain)
 
 
-
     def addTLSPacket(self,pkt):
+        '''
+        The `addTLSPacket` method is responsible for adding a TLS packet (`pkt`) to the existing payload and processing the complete TLS records. Here's how the method works:
+
+        1. The method initializes a flag variable to `True` to indicate that there are more packets to process.
+        2. The TLS packet (`pkt`) is appended to the existing payload (`self.carry`).
+        3. Inside a loop, the method attempts to extract the length of the first TLS record from the current payload using the `TLS` class. If an exception occurs during this process, the loop is exited.
+        4. If the length of the TLS record plus the TLS record header size (5 bytes) is less than or equal to the length of the current payload (`self.carry`), the method extracts the first TLS record by passing the corresponding portion of the payload to the `processTLSpacket` method.
+        5. After processing the TLS record, the method checks if the length of the current payload equals the length of the processed TLS record. If it does, the payload is cleared, and the loop is exited.
+        6. If the length of the current payload is greater than the length of the processed TLS record, the method updates the current payload by removing the processed TLS record and its header from the payload.
+        7. If the length of the current payload is not sufficient to contain a complete TLS record, the flag is set to `False`, indicating that there are no more complete TLS records to process.
+        '''
 
         flag=True
 
         self.carry+=str(pkt)
 
-
-
-
         #TLS(carry).show2()
 
         while flag:
-
             try:
                 plen= TLS(self.carry).records[0].length#[scapy_ssl_tls.ssl_tls.TLSRecord].length
                 #TLS(self.carry).show2()
@@ -344,7 +442,6 @@ class TLSConnection:
                 #TLS(self.carry).show2()
                 #print len(self.carry),len(pkt)
                 break
-
 
             #print plen
             if plen+5<= len(self.carry):
@@ -359,5 +456,3 @@ class TLSConnection:
                     print 'error' , len (self.carry), plen+5
             else:
                 flag=False
-
-
