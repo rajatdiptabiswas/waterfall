@@ -197,10 +197,10 @@ if __name__ == '__main__':
         sys.exit(-1)
 
     logger = logging.getLogger('simpleproxy')
-    logger.setLevel(logging.INFO)
+    logger.setLevel(logging.DEBUG)
     hdlr = logging.StreamHandler()
-    hdlr.setLevel(logging.INFO)
-    hdlr.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+    hdlr.setLevel(logging.DEBUG)
+    hdlr.setFormatter(logging.Formatter('%(asctime)s (%(name)s) [%(levelname)s] <%(module)s:%(funcName)s> %(message)s'))
     logger.addHandler(hdlr)
 
 
