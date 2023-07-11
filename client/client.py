@@ -352,6 +352,18 @@ class CommandFactory:
     These commands are constructed by packing the necessary data into binary strings using `struct.pack()` and concatenating them with the appropriate command type.
     """
 
+    """
+    For `struct.pack()`, `>` means pack in big-endian byte order.
+    
+    `>c` packs a single character
+    - S = initialize_relay
+    - N = new_connection
+    - Q = close_connection
+    - O = data
+
+    `>I` packs an unsigned integer
+    """
+
     @staticmethod
     def initialize_relay(channel_uuid):
         return "%s%s%s" % (
@@ -437,7 +449,6 @@ class OvertGateway(protocol.ClientFactory):
         - `OvertConnection(Protocol)`'s `self.factory` refers to `OvertGateway(ClientFactory)`.
         - The `channel` parameter `self` passed to `self.factory.channel_connected(self)` is `OvertConnection(Protocol)`.
         - `OvertConnection(Protocol)` has an `establish_tls()` function.
-        Could not find references to `channel_connected`, `establish_tls` elsewhere
         """
         self.overt_connection = channel
 
@@ -543,7 +554,9 @@ class CovertConnection:
     `CovertConnection` class acts as an intermediary between a local connection (represented by `socks_conn`) and an overt protocol (`overt`) by managing the establishment, data transfer, and closure of the connections.
     """
 
-    def __init__(self, overt, addr, port, local_con):
+    def __init__(
+        self, overt: OvertGateway, addr, port, local_con: Socks5Protocol
+    ):
         self.overt = overt
         self.addr = addr
         self.port = port
@@ -602,7 +615,7 @@ class Waterfall(ClientFactory):
     """
 
     def __init__(self):
-        self.overts = []
+        self.overts: list[OvertGateway] = []
 
     def new_overt_connection(self, channel):
         """
@@ -616,7 +629,7 @@ class Waterfall(ClientFactory):
         self.overts.append(channel_gateway)
         return channel_gateway
 
-    def new_covert_connection(self, socks_conn, addr, port):
+    def new_covert_connection(self, socks_conn: Socks5Protocol, addr, port):
         """
         - Takes the first `OvertGateway(ClientFactory)` instance initialiazed with a channel from the `overts` array and stores it in `overt`
         - Creates a `CovertConnection` instance `connection` using the parameters --- `OvertGateway` instance `overt`, address, port, SOCKS connection instance
@@ -665,6 +678,7 @@ def main():
         """
         overt: OvertGateway(ClientFactory)
         overt.on_channel_ready: Deferred()
+        overts: list[OvertGateway(ClientFactory)]
         """
         overt.on_channel_ready.addCallback(connect_overt)
 
@@ -678,6 +692,7 @@ def main():
         for x in queries
     ]
     """
+    `overts` is a list of OvertGateway objects
     `overt_urls` has link to Google Image search for nature
     """
     # overt_urls = ['https://www.amazon.com']
