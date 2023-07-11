@@ -4,24 +4,27 @@ from twisted.internet import protocol
 
 
 import logging
+
 log = logging.getLogger(__name__)
-logging.basicConfig(format='%(asctime)s [%(levelname)s] <%(filename)s> %(message)s', level=logging.DEBUG)
+logging.basicConfig(
+    format="%(asctime)s [%(levelname)s] <%(filename)s> %(message)s", level=logging.DEBUG
+)
 
 
 class Socks5Protocol(protocol.Protocol):
     def __init__(self):
-        self.state = ''
+        self.state = ""
         self.remote = None
 
     def connectionMade(self):
-        self.state = 'wait_hello'
+        self.state = "wait_hello"
 
     def dataReceived(self, data):
         method = getattr(self, self.state)
         method(data)
 
     def wait_hello(self, data):
-        (ver, nmethods) = struct.unpack('!BB', data[:2])
+        (ver, nmethods) = struct.unpack("!BB", data[:2])
         if ver != 5:
             # we do SOCKS5 only
             self.transport.loseConnection()
@@ -30,13 +33,13 @@ class Socks5Protocol(protocol.Protocol):
             # not SOCKS5 protocol?!
             self.transport.loseConnection()
             return
-        methods = data[2:2 + nmethods]
+        methods = data[2 : 2 + nmethods]
         for meth in methods:
             if ord(meth) == 0:
                 # no auth, neato, accept
-                resp = struct.pack('!BB', 5, 0)
+                resp = struct.pack("!BB", 5, 0)
                 self.transport.write(resp)
-                self.state = 'wait_connect'
+                self.state = "wait_connect"
                 return
             if ord(meth) == 255:
                 # disconnect
@@ -46,7 +49,7 @@ class Socks5Protocol(protocol.Protocol):
         self.transport.loseConnection()
 
     def wait_connect(self, data):
-        (ver, cmd, rsv, atyp) = struct.unpack('!BBBB', data[:4])
+        (ver, cmd, rsv, atyp) = struct.unpack("!BBBB", data[:4])
         if ver != 5 or rsv != 0:
             # protocol violation
             self.transport.loseConnection()
@@ -55,20 +58,20 @@ class Socks5Protocol(protocol.Protocol):
         if cmd == 1:
             host = None
             if atyp == 1:  # IP V4
-                (b1, b2, b3, b4) = struct.unpack('!BBBB', data[:4])
-                host = '%i.%i.%i.%i' % (b1, b2, b3, b4)
+                (b1, b2, b3, b4) = struct.unpack("!BBBB", data[:4])
+                host = "%i.%i.%i.%i" % (b1, b2, b3, b4)
                 data = data[4:]
             elif atyp == 3:  # domainname
-                l, = struct.unpack('!B', data[:1])
-                host = data[1:1 + l]
-                data = data[1 + l:]
+                (l,) = struct.unpack("!B", data[:1])
+                host = data[1 : 1 + l]
+                data = data[1 + l :]
             elif atyp == 4:  # IP V6
                 raise RuntimeError("IPV6 not supported")
             else:
                 # protocol violation
                 self.transport.loseConnection()
                 return
-            (port) = struct.unpack('!H', data[:2])
+            (port) = struct.unpack("!H", data[:2])
             port = port[0]
             data = data[2:]
             return self.perform_connect(host, port)
@@ -88,15 +91,15 @@ class Socks5Protocol(protocol.Protocol):
             # is present
             self.transport.loseConnection()
             return
-        ip = [int(i) for i in myname.split('.')]
-        resp = struct.pack('!BBBB', 5, code, 0, 1)
-        resp += struct.pack('!BBBB', ip[0], ip[1], ip[2], ip[3])
-        resp += struct.pack('!H', self.transport.getHost().port)
+        ip = [int(i) for i in myname.split(".")]
+        resp = struct.pack("!BBBB", 5, code, 0, 1)
+        resp += struct.pack("!BBBB", ip[0], ip[1], ip[2], ip[3])
+        resp += struct.pack("!H", self.transport.getHost().port)
         self.transport.write(resp)
 
     def perform_connect(self, host, port):
-        if hasattr(self.factory, 'on_socks_connect'):
-            log.debug('Socks5Protocol on_socks_connect {}:{}'.format(host, port))
+        if hasattr(self.factory, "on_socks_connect"):
+            log.debug("Socks5Protocol on_socks_connect {}:{}".format(host, port))
             self.factory.on_socks_connect(self, host, port)
         # if self.on_connect is not None:
         #     self.on_connect(self, host, port)
@@ -104,7 +107,7 @@ class Socks5Protocol(protocol.Protocol):
     def start_remote_communication(self, remote):
         self.remote = remote
         self.send_connect_response(0)
-        self.state = 'communicate'
+        self.state = "communicate"
 
     def communicate(self, data):
         self.remote.send(data)

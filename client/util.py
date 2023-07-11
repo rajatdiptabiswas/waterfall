@@ -12,7 +12,7 @@ class Buffer:
     def read(self, amnt=None):
         available = self.available()
         if not available:
-            return ''
+            return ""
 
         if amnt is None or available < amnt:
             amnt = available
@@ -48,29 +48,28 @@ class HttpResponse:
         self._chunk_buff = []
 
         self._buffer = []
-        self._mode = 'status'
+        self._mode = "status"
         self._body_buffer = BytesIO()
 
     def write(self, data):
-
-        if self._mode == 'body':
+        if self._mode == "body":
             if len(self._buffer):
                 self._buffer.append(data)
-                data = ''.join(self._buffer)
+                data = "".join(self._buffer)
                 self._buffer = []
 
             self.parse_body(data)
             return
 
-        if '\r\n' in data:
+        if "\r\n" in data:
             if len(self._buffer):
                 self._buffer.append(data)
-                data = ''.join(self._buffer)
+                data = "".join(self._buffer)
                 self._buffer = []
-            index = data.index('\r\n')
+            index = data.index("\r\n")
             line = data[:index]
             self.parse_line(line)
-            self.write(data[index+2:])
+            self.write(data[index + 2 :])
         else:
             self._buffer.append(data)
 
@@ -80,12 +79,14 @@ class HttpResponse:
 
         if not self._is_chunked:
             self._body_buffer.write(data)
-            self.finished = self._body_buffer.tell() == int(self.headers['content-length'])
+            self.finished = self._body_buffer.tell() == int(
+                self.headers["content-length"]
+            )
             return
 
         if self._chunk_size:
-            read = data[:self._chunk_size]
-            rest = data[self._chunk_size+2:]
+            read = data[: self._chunk_size]
+            rest = data[self._chunk_size + 2 :]
 
             self._body_buffer.write(read)
 
@@ -96,16 +97,16 @@ class HttpResponse:
 
             self.parse_body(rest)
         else:
-            if '\r\n' not in data:
+            if "\r\n" not in data:
                 self._chunk_buff.append(data)
                 return
 
-            index = data.index('\r\n')
-            buff, rest = data[:index], data[index+2:]
+            index = data.index("\r\n")
+            buff, rest = data[:index], data[index + 2 :]
 
             if len(self._chunk_buff):
                 self._chunk_buff.append(buff)
-                buff = ''.join(self._chunk_buff)
+                buff = "".join(self._chunk_buff)
                 self._chunk_buff = []
 
             self._chunk_size = int(buff, 16)
@@ -115,19 +116,19 @@ class HttpResponse:
                 self.parse_body(rest)
 
     def parse_line(self, line):
-        if self._mode == 'status':
+        if self._mode == "status":
             match = re.match("(.+) (\d+) (.+)", line)
             self.version, self.status_code, self.reason = match.groups()
-            self._mode = 'headers'
-        elif self._mode == 'headers':
+            self._mode = "headers"
+        elif self._mode == "headers":
             if not line:
-                if self.headers.get('transfer-encoding', None) == 'chunked':
+                if self.headers.get("transfer-encoding", None) == "chunked":
                     self._is_chunked = True
-                elif self.headers.get('content-length', '0') == '0':
+                elif self.headers.get("content-length", "0") == "0":
                     self.finished = True
-                self._mode = 'body'
+                self._mode = "body"
             else:
-                key, val = re.match('(.+)\s*[:]\s*(.+)', line).groups()
+                key, val = re.match("(.+)\s*[:]\s*(.+)", line).groups()
                 self.headers[key.lower()] = val
 
     def set_header(self, header, value):
@@ -141,19 +142,22 @@ class HttpResponse:
 
     def to_raw(self):
         headers = self.headers
-        if 'transfer-encoding' in headers:
-            del headers['transfer-encoding']
-            headers['content-length'] = self._body_buffer.tell()
-        header_str = '\r\n'.join(['{}: {}'.format(h.title(), headers[h]) for h in headers.keys()])
+        if "transfer-encoding" in headers:
+            del headers["transfer-encoding"]
+            headers["content-length"] = self._body_buffer.tell()
+        header_str = "\r\n".join(
+            ["{}: {}".format(h.title(), headers[h]) for h in headers.keys()]
+        )
 
         self._body_buffer.seek(0)
-        return '{} {} {}\r\n{}\r\n\r\n{}\r\n'.format(
+        return "{} {} {}\r\n{}\r\n\r\n{}\r\n".format(
             self.version,
             self.status_code,
             self.reason,
             header_str,
-            self._body_buffer.read()
+            self._body_buffer.read(),
         )
+
 
 #
 # a = HttpResponse()

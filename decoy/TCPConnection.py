@@ -1,8 +1,8 @@
-__author__ = 'milad'
-from scapy.all import Ether,IP,TCP
+__author__ = "milad"
+from scapy.all import Ether, IP, TCP
 
 
-class TCPConnection():
+class TCPConnection:
     def __init__(self, seq):
         self.packets = {}
         self.nextseq = seq
@@ -18,12 +18,11 @@ class TCPConnection():
         ret = []
         while True:
             if self.nextseq in self.packets:
-                #print 'before',self.nextseq
+                # print 'before',self.nextseq
                 pkt = self.packets.get(self.nextseq)
                 self.nextseq += len((pkt[TCP].payload))
-                #print 'after',self.nextseq
-                ret.append(  pkt)
+                # print 'after',self.nextseq
+                ret.append(pkt)
             else:
                 break
         return ret
-
