@@ -6,9 +6,6 @@ from twisted.internet import protocol
 import logging
 
 log = logging.getLogger(__name__)
-logging.basicConfig(
-    format="%(asctime)s [%(levelname)s] <%(filename)s> %(message)s", level=logging.DEBUG
-)
 
 
 class Socks5Protocol(protocol.Protocol):
