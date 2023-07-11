@@ -3,6 +3,11 @@ import struct
 from twisted.internet import protocol
 
 
+import logging
+log = logging.getLogger(__name__)
+logging.basicConfig(format='%(asctime)s [%(levelname)s] <%(filename)s> %(message)s', level=logging.DEBUG)
+
+
 class Socks5Protocol(protocol.Protocol):
     def __init__(self):
         self.state = ''
@@ -91,6 +96,7 @@ class Socks5Protocol(protocol.Protocol):
 
     def perform_connect(self, host, port):
         if hasattr(self.factory, 'on_socks_connect'):
+            log.debug('Socks5Protocol on_socks_connect {}:{}'.format(host, port))
             self.factory.on_socks_connect(self, host, port)
         # if self.on_connect is not None:
         #     self.on_connect(self, host, port)
