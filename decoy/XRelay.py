@@ -20,20 +20,7 @@ import struct
 import errno
 
 '''
-The code provided defines two classes: `RelayManager` and `Relay`. Here's a breakdown of each class:
-
-1. `RelayManager`:
-   - The `processCMD` method processes a command packet by sending it to the server connection.
-   - The `processDATA` method 
-   - The `autofetch` method 
-   - The `getnewpackets` method 
-   
-2. `Relay`:
-   - This class acts as a wrapper around the `RelayManager` class.
-   - The 
-   - 
-
-Overall, the `RelayManager` class handles the management of relay functionality, including handling commands, processing data, and fetching new packets. The `Relay` class serves as a convenient interface to access the functionality provided by the `RelayManager` class.
+The `RelayManager` class handles the management of relay functionality, including handling commands, processing data, and fetching new packets. The `Relay` class serves as a convenient interface to access the functionality provided by the `RelayManager` class.
 '''
 
 class RelayManager():
