@@ -62,6 +62,8 @@ class ProxyServerProtocol(basic.LineReceiver):
         if not len(line.strip()):
             self.end_of_headers()
 
+        log.debug('ProxyServerProtocol line received - {}'.format(line))
+
         match = re.match('CONNECT (.+)[:](\d+) HTTP/1[.]\d', line)
 
         if match is None:
@@ -88,12 +90,12 @@ class ProxyServerProtocol(basic.LineReceiver):
 
         if self.ous.is_overt_address(self.address[0]):
             # print("YES {}".format(self.address[0]))
-            log.debug("Overt address TRUE {} - Starting covert proxy session".format(self.address[0]))
+            log.debug("Overt address TRUE - Starting covert proxy session {}:{}".format(self.address[0], self.ous.proxy_handler_port))
             # log.debug("Starting covert proxy session")
             self.start_proxy('127.0.0.1', self.ous.proxy_handler_port)
         else:
             # print("NO {}".format(self.address[0]))
-            log.debug("Overt address FALSE {} - Starting vanilla proxy session".format(self.address[0]))
+            log.debug("Overt address FALSE - Starting vanilla proxy session {}:{}".format(self.address[0], self.address[1]))
             # log.debug("Starting vanilla proxy session")
             self.start_proxy(*self.address)
 
@@ -137,7 +139,7 @@ class OvertRequest(http.Request):
         # the channel to have something to send back in response
         if use_as_covert and cache_key not in request_cache:
             # print("Populating Cache", cache_key)
-            log.debug("Populating Cache {}".format(cache_key))
+            log.debug("Populating cache {}".format(cache_key))
             return request_cache.populate_cache(self).addCallback(self.cache_response_received)
 
         response_size = len(request_cache[cache_key])
@@ -189,7 +191,7 @@ class RequestCache:
 
         def connectionLost(self, reason=None):
             # print("Connection Lost", reason)
-            log.debug("Connection Lost {}".format(reason))
+            log.debug("Connection lost {}".format(reason))
             pass
             
         def send_request(self):
@@ -269,6 +271,9 @@ class OvertUserSimulator(object):
         self.overt_urls = overt_urls
         self.overt_url_iterator = 0
 
+        log.debug('OvertUserSimulator overts - {}'.format(self.overts))
+        log.debug('OvertUserSimulator overt_urls - {}'.format(self.overt_urls))
+
         self.browser = None
         self.request_cache = RequestCache()
 
@@ -301,6 +306,8 @@ class OvertUserSimulator(object):
         self.browser.start()
 
         def _load_overt():
+            log.debug("Queueing overt URL to OUS browser {}".format(self.overt_urls[self.overt_url_iterator]))
+
             self.browser.queue_url(self.overt_urls[self.overt_url_iterator])
             self.overt_url_iterator = (self.overt_url_iterator + 1) % len(self.overt_urls)
 
