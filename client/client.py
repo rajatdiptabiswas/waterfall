@@ -12,6 +12,7 @@ from ous import OvertUserSimulator
 from socks import Socks5Protocol
 from util import Buffer
 
+
 log = logging.getLogger(__name__)
 
 
@@ -114,6 +115,9 @@ class OvertConnection(Protocol):
 
         self.tls_sendall(client_hello)
         deferred = self.tls_recvall()
+
+        log.info("Completed sending TLS hello")
+
         return deferred
 
     def _tls_client_key_exchange(self, *args):
@@ -126,6 +130,9 @@ class OvertConnection(Protocol):
         self.tls_sendall(TLS.from_records([client_key_exchange, client_ccs]))
 
         deferred = self.tls_recvall()
+
+        log.info("Completed TLS key exchange")
+
         return deferred
 
     def _tls_finish_handshake(self, *args):
@@ -140,6 +147,9 @@ class OvertConnection(Protocol):
             )
         )
         deferred = self.tls_recvall()
+
+        log.info("Finished TLS handshake")
+
         return deferred
 
     def tls_sendall(self, pkt):
@@ -183,6 +193,7 @@ class OvertConnection(Protocol):
     def _deferred_error(self, err):
         log.error("Error occured in deferred callback")
         log.error(err)
+        log.error(err.getBriefTraceback())
 
     def do_next(self, method, *args):
         if method is not None and type(method) != str:
@@ -191,7 +202,7 @@ class OvertConnection(Protocol):
 
     def dataReceived(self, data):
         if self.state is None:
-            print("BUFFERING")
+            log.info("BUFFERING...")
             self._buffer.append(data)
             return
         elif len(self._buffer):
