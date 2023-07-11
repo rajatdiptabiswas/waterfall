@@ -74,7 +74,7 @@ class OvertConnection(Protocol):
         return d
 
     def _tls_hello(self):
-        log.info("Sending TLS helo...")
+        log.info("Sending TLS hello...")
         # pec = '006d000b000403000102000a00340032000e000d0019000b000c00180009000a00160017000800060007001400150004000500120013000100020003000f0010001100230000000d0020001e060106020603050105020503040104020403030103020303020102020203000f000101'
         # ur = b''.join([chr(int(pec[i:i + 2], 16)) for i in range(0, len(pec), 2)])
 
@@ -112,6 +112,8 @@ class OvertConnection(Protocol):
         return deferred
 
     def _tls_finish_handshake(self, *args):
+        log.info("Finishing TLS handshake...")
+        
         self.tls_sendall(TLSRecord(version=tls_version) / TLSHandshakes(handshakes=[TLSHandshake() /
                                                 TLSFinished(data=self.tls_ctx.get_verify_data())]))
         deferred = self.tls_recvall()
@@ -375,7 +377,7 @@ class OvertGateway(protocol.ClientFactory):
             self.overt_connection.send(request)
 
     def send_covert_data(self, data, connid, wait_for_overt=True):
-        # log.debug('Sending covert data for connection: {}'.format(connid))
+        log.debug('Sending covert data for connection: {}'.format(connid))
         message = CommandFactory.data(data, connid)
         self.send_covert_command(message, wait_for_overt=wait_for_overt)
 
