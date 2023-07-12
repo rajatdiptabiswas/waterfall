@@ -124,7 +124,9 @@ class OvertConnection(Protocol):
         log.info("Making TLS key exchange...")
 
         client_key_exchange = TLSRecord(version=tls_version) / TLSHandshakes(
-            handshakes=[TLSHandshake() / self.tls_ctx.get_client_kex_data("LOAD")]
+            handshakes=[
+                TLSHandshake() / self.tls_ctx.get_client_kex_data("LOAD")
+            ]
         )
         client_ccs = TLSRecord(version=tls_version) / TLSChangeCipherSpec()
         self.tls_sendall(TLS.from_records([client_key_exchange, client_ccs]))
@@ -142,7 +144,8 @@ class OvertConnection(Protocol):
             TLSRecord(version=tls_version)
             / TLSHandshakes(
                 handshakes=[
-                    TLSHandshake() / TLSFinished(data=self.tls_ctx.get_verify_data())
+                    TLSHandshake()
+                    / TLSFinished(data=self.tls_ctx.get_verify_data())
                 ]
             )
         )
@@ -241,7 +244,9 @@ class OvertConnection(Protocol):
 
             # print('pkt_riecive {} {}'.format(cmd, size))
             if size + self.HEADER_SIZE <= len(self._datacarry):
-                newdata = self._datacarry[self.HEADER_SIZE : self.HEADER_SIZE + size]
+                newdata = self._datacarry[
+                    self.HEADER_SIZE : self.HEADER_SIZE + size
+                ]
                 try:
                     if cmd == "C":
                         self.connection_established(newdata, connid)
@@ -309,7 +314,11 @@ class CommandFactory:
     @staticmethod
     def new_connection(addr, port, con_uuid):
         data = "%s%s:%s" % (con_uuid, addr, port)
-        return "%s%s%s" % (struct.pack(">c", "N"), struct.pack(">I", len(data)), data)
+        return "%s%s%s" % (
+            struct.pack(">c", "N"),
+            struct.pack(">I", len(data)),
+            data,
+        )
 
     @staticmethod
     def close_connection(conn_id):
@@ -322,7 +331,11 @@ class CommandFactory:
     @staticmethod
     def data(data, conn_id):
         data = "%s%s" % (conn_id, data)
-        return "%s%s%s" % (struct.pack(">c", "O"), struct.pack(">I", len(data)), data)
+        return "%s%s%s" % (
+            struct.pack(">c", "O"),
+            struct.pack(">I", len(data)),
+            data,
+        )
 
 
 class ChannelNotReadyError(Exception):
@@ -355,8 +368,11 @@ class OvertGateway(protocol.ClientFactory):
         self.overt_connection = channel
 
         log.info("Initializing overt channel...")
+
         d = self.overt_connection.establish_tls()
         d.addCallback(self.init_relay)
+
+        log.info("Finished initializing overt channel")
 
     def channel_ready(self, *args):
         log.info("Channel Ready")
@@ -391,6 +407,8 @@ class OvertGateway(protocol.ClientFactory):
         self.send_covert_command(
             CommandFactory.initialize_relay(data), wait_for_overt=False
         )
+
+        log.info("Finished initializing relay")
 
     def _new_connection(self, addr, port, conn_uuid):
         command = CommandFactory.new_connection(addr, port, conn_uuid)
@@ -430,7 +448,9 @@ class OvertGateway(protocol.ClientFactory):
             )
         else:
             log.debug(
-                "Sending {} Overt data on {}".format(len(request), self.channel.host)
+                "Sending {} Overt data on {}".format(
+                    len(request), self.channel.host
+                )
             )
             self.overt_connection.send(request)
 
@@ -547,7 +567,8 @@ def main():
     #            'space', 'people', 'house', 'bear', 'water', 'atom', 'cow', 'icecream']
     queries = ["nature"]
     overt_urls = [
-        "https://www.google.com/search?site=&tbm=isch&q={}".format(x) for x in queries
+        "https://www.google.com/search?site=&tbm=isch&q={}".format(x)
+        for x in queries
     ]
     # overt_urls = ['https://www.amazon.com']
     ous = OvertUserSimulator(overt_urls, overts)
