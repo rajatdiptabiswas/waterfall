@@ -28,6 +28,13 @@ except ImportError:
 tls_version = TLSVersion.TLS_1_2
 
 
+def deferred_completed(result, message):
+    if isinstance(result, Exception):
+        log.error("ERROR {} : {}".format(message, result))
+    else:
+        log.info("SUCCESS {}".format(message))
+
+
 class OvertConnection(Protocol):
     KEEPALIVE_INTERVAL = 1
 
@@ -68,10 +75,12 @@ class OvertConnection(Protocol):
         self.factory.connection_closed(connid)
 
     def establish_tls(self):
+        log.info("Establishing TLS...")
         d = self._tls_hello()
         d.addCallback(self._tls_client_key_exchange)
         d.addCallback(self._tls_finish_handshake)
         d.addCallback(partial(self.do_next, self.add_tls_pkt))
+        d.addBoth(deferred_completed, "TLS established")
         return d
 
     def _tls_hello(self):
@@ -116,7 +125,7 @@ class OvertConnection(Protocol):
         self.tls_sendall(client_hello)
         deferred = self.tls_recvall()
 
-        log.info("Completed sending TLS hello")
+        deferred.addBoth(deferred_completed, "Completed sending TLS hello")
 
         return deferred
 
@@ -124,16 +133,14 @@ class OvertConnection(Protocol):
         log.info("Making TLS key exchange...")
 
         client_key_exchange = TLSRecord(version=tls_version) / TLSHandshakes(
-            handshakes=[
-                TLSHandshake() / self.tls_ctx.get_client_kex_data("LOAD")
-            ]
+            handshakes=[TLSHandshake() / self.tls_ctx.get_client_kex_data("LOAD")]
         )
         client_ccs = TLSRecord(version=tls_version) / TLSChangeCipherSpec()
         self.tls_sendall(TLS.from_records([client_key_exchange, client_ccs]))
 
         deferred = self.tls_recvall()
 
-        log.info("Completed TLS key exchange")
+        deferred.addBoth(deferred_completed, "Completed TLS key exchange")
 
         return deferred
 
@@ -144,14 +151,13 @@ class OvertConnection(Protocol):
             TLSRecord(version=tls_version)
             / TLSHandshakes(
                 handshakes=[
-                    TLSHandshake()
-                    / TLSFinished(data=self.tls_ctx.get_verify_data())
+                    TLSHandshake() / TLSFinished(data=self.tls_ctx.get_verify_data())
                 ]
             )
         )
         deferred = self.tls_recvall()
 
-        log.info("Finished TLS handshake")
+        deferred.addBoth(deferred_completed, "Finished TLS handshake")
 
         return deferred
 
@@ -243,10 +249,10 @@ class OvertConnection(Protocol):
             size = struct.unpack(">I", self._datacarry[17:21])[0]
 
             # print('pkt_riecive {} {}'.format(cmd, size))
+            log.info("Packet received cmd={} size={}".format(cmd, size))
+
             if size + self.HEADER_SIZE <= len(self._datacarry):
-                newdata = self._datacarry[
-                    self.HEADER_SIZE : self.HEADER_SIZE + size
-                ]
+                newdata = self._datacarry[self.HEADER_SIZE : self.HEADER_SIZE + size]
                 try:
                     if cmd == "C":
                         self.connection_established(newdata, connid)
@@ -258,6 +264,7 @@ class OvertConnection(Protocol):
                     if cmd == "F":
                         self.connection_closed(connid)
                     else:
+                        log.error("Invalid command received cmd={}".format(cmd))
                         raise ValueError("Unknown command {}".format(cmd))
                 except:
                     pass
@@ -372,10 +379,10 @@ class OvertGateway(protocol.ClientFactory):
         d = self.overt_connection.establish_tls()
         d.addCallback(self.init_relay)
 
-        log.info("Finished initializing overt channel")
+        d.addBoth(deferred_completed, "Finished initializing overt channel")
 
     def channel_ready(self, *args):
-        log.info("Channel Ready")
+        log.info("Channel ready")
         self.new_connection = self._new_connection
         self.register_connection = self._register_connection
         self.close_connection = self._close_connection
@@ -439,8 +446,13 @@ class OvertGateway(protocol.ClientFactory):
             covert_data = self._buffer.read(covert_size)
             wrapped_data = self.channel.wrap_message(covert_data)
             log.debug(
-                "Sending {} Covert data on {}, total size: {}".format(
+                "Sending {} COVERT data on {}, total wrapped data size {}".format(
                     len(covert_data), self.channel.host, len(wrapped_data)
+                )
+            )
+            log.debug(
+                "<<< COVERT DATA >>>\n{}\n<<< WRAPPED DATA >>>\n{}".format(
+                    covert_data, wrapped_data
                 )
             )
             self.overt_connection.send(
@@ -448,21 +460,23 @@ class OvertGateway(protocol.ClientFactory):
             )
         else:
             log.debug(
-                "Sending {} Overt data on {}".format(
-                    len(request), self.channel.host
-                )
+                "Sending {} OVERT data on {}".format(len(request), self.channel.host)
             )
+            log.debug("<<< OVERT DATA >>>\n{}".format(request))
             self.overt_connection.send(request)
 
     def send_covert_data(self, data, connid, wait_for_overt=True):
-        log.debug("Sending covert data for connection: {}".format(connid))
+        log.info("Sending covert data for connection {}".format(connid))
         message = CommandFactory.data(data, connid)
         self.send_covert_command(message, wait_for_overt=wait_for_overt)
 
     def send_covert_command(self, command, wait_for_overt=True):
+        wait_for_overt = False
         if wait_for_overt:
+            log.info("Buffering covert command {}".format(command))
             self._buffer.write(command)
         else:
+            log.info("Sending covert command {}".format(command))
             self.overt_connection.send(self.channel.wrap_message(command))
 
     def raise_channel_not_ready(self, *args, **kwargs):
@@ -481,14 +495,16 @@ class CovertConnection:
         self.connid = None
 
     def make_connection(self):
-        log.info("Connecting {}:{}...".format(self.addr, self.port))
+        log.info("Connecting to {}:{}...".format(self.addr, self.port))
+
         d = self.overt.new_connection(self.addr, self.port, self.uuid)
         d.addCallback(self.connection_made)
         d.addErrback(self.connection_failed)
+
         return d
 
     def connection_made(self, connid):
-        log.debug("Connection established...")
+        log.info("Connection established")
 
         self.connid = connid
         self.overt.register_connection(self.connid, self)
@@ -496,6 +512,7 @@ class CovertConnection:
         self.socks_conn.start_remote_communication(self)
 
     def connection_failed(self, err):
+        log.error("Connection could not be established")
         raise err
 
     def data_received(self, data):
@@ -567,8 +584,7 @@ def main():
     #            'space', 'people', 'house', 'bear', 'water', 'atom', 'cow', 'icecream']
     queries = ["nature"]
     overt_urls = [
-        "https://www.google.com/search?site=&tbm=isch&q={}".format(x)
-        for x in queries
+        "https://www.google.com/search?site=&tbm=isch&q={}".format(x) for x in queries
     ]
     # overt_urls = ['https://www.amazon.com']
     ous = OvertUserSimulator(overt_urls, overts)
