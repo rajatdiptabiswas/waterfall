@@ -184,7 +184,7 @@ def print_and_accept(pkt):
 
 nfqueue = NetfilterQueue()
 nfqueue.bind(1, print_and_accept)
-nfq2 = NetfilterQueue()
+# nfq2 = NetfilterQueue()
 
 try:
     nfqueue.run()
