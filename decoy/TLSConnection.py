@@ -147,7 +147,7 @@ class TLSConnection:
         # print [ord(i) for i in self.ivkey]
 
         # print 'Keys are in place'
-        log.debug("Keys are in place")
+        log.info("Keys are in place")
 
     def initDecryptor(self):
         # self.mode= modes.CBC(self.server_write_IV)
@@ -234,7 +234,7 @@ class TLSConnection:
         while flag:
             cmd = struct.unpack(">c", self.datacarry[:1])[0]
             # print 'GET COMMAND',cmd
-            log.debug("GET COMMAND {}".format(cmd))
+            log.info("GET COMMAND {}".format(cmd))
 
             size = struct.unpack(">I", self.datacarry[1:5])[0]
             if size + self.headersize <= len(self.datacarry):
@@ -242,6 +242,11 @@ class TLSConnection:
                     newdata = self.datacarry[: size + self.headersize]
                     self.startreplace = True
                     # print newdata[5:],size,cmd
+                    log.info(
+                        "newdata[5:]={} cmd={} size={}".format(
+                            newdata[5:], cmd, size
+                        )
+                    )
                     assert 16 == size
                     pl = newdata[self.headersize : self.headersize + size]
                     resp = "%s%s%s%s" % (
@@ -250,6 +255,7 @@ class TLSConnection:
                         struct.pack(">I", len(pl)),
                         pl,
                     )
+                    log.info("resp={}".format(resp))
                     self.replacepayloads.append(resp)
 
                 else:
@@ -269,10 +275,12 @@ class TLSConnection:
             return
         reg = re.search(r"/~milad/(\S+)", pkt)
         # print 'raw', pkt
-        log.debug("raw {}".format(pkt))
+        log.info("pkt=\n{}".format(pkt))
+        # log.info('reg.group(1)={}'.format(reg.group(1)))
 
         if reg:
             dec = base64.b64decode(reg.group(1))
+            log.info("dec={}".format(dec))
             self.addDATA(dec)
 
     def retrivepackets(self):
@@ -294,7 +302,7 @@ class TLSConnection:
                 ret += data[:size]
 
                 # print 'DATA LARGER'
-                log.debug("DATA LARGER")
+                log.info("DATA LARGER")
 
                 self.replacepayloads.insert(0, data[size:])
                 size = 0
@@ -303,7 +311,7 @@ class TLSConnection:
                 ret += data
                 size -= len(data)
         # print 'getting new packet',datetime.datetime.now()
-        log.debug("Getting new packet {}".format(datetime.datetime.now()))
+        log.info("Getting new packet {}".format(datetime.datetime.now()))
 
         self.replacedpackets[seq] = ret
         return ret
@@ -316,7 +324,7 @@ class TLSConnection:
                 2:34
             ]
             # print 'Server Random Found'
-            log.debug("Server Random Found")
+            log.info("Server Random Found")
 
         if scapy_ssl_tls.ssl_tls.TLSClientHello in mtls:
             self.clientrandom = str(mtls[scapy_ssl_tls.ssl_tls.TLSClientHello])[
@@ -333,7 +341,7 @@ class TLSConnection:
             )
 
             # print 'Client Random Found'
-            log.debug("Client Random Found")
+            log.info("Client Random Found")
         if scapy_ssl_tls.ssl_tls.TLSServerKeyExchange in mtls:
             server_kex = mtls[scapy_ssl_tls.ssl_tls.TLSServerKeyExchange]
             a = server_kex[scapy_ssl_tls.ssl_tls.TLSServerECDHParams]
@@ -368,13 +376,13 @@ class TLSConnection:
             # ecdh=scapy_ssl_tls.ssl_tls.TLSServerECDHParams(str(mtls[scapy_ssl_tls.ssl_tls.TLSServerKeyExchange]))
             # self.serverpub=ecdh.p
             # print 'server public Found'
-            log.debug("Server Public Found")
+            log.info("Server Public Found")
 
             # self.driveKeys()
 
         if self.candecrypt:
             # print 'decrypting '
-            log.debug("Decrypting...")
+            log.debug("Decrypting")
 
             # mtls.show2()
             if scapy_ssl_tls.ssl_tls.TLSCiphertext in mtls:
@@ -395,7 +403,7 @@ class TLSConnection:
 
         self.carry += str(pkt)
 
-        # TLS(carry).show2()
+        # TLS(self.carry).show2()
 
         while flag:
             try:
@@ -405,6 +413,9 @@ class TLSConnection:
                 # TLS(self.carry).show2()
             except:
                 # TLS(self.carry).show2()
+                log.debug(
+                    "len(carry)={} len(pkt)={}", len(self.carry), len(pkt)
+                )
                 # print len(self.carry),len(pkt)
                 break
 
@@ -419,6 +430,10 @@ class TLSConnection:
                         self.carry = self.carry[plen + 5 :]
                 except:
                     # print 'error' , len (self.carry), plen+5
-                    log.error("{} {}".format(len(self.carry), plen + 5))
+                    log.error(
+                        "len(carry)={} plen+5={}".format(
+                            len(self.carry), plen + 5
+                        )
+                    )
             else:
                 flag = False

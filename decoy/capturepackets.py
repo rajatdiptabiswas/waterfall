@@ -34,7 +34,8 @@ def get_packet(payload):
     global cache
 
     key = (
-        struct.unpack("!H", payload[4:6])[0] + struct.unpack("!I", payload[12:16])[0]
+        struct.unpack("!H", payload[4:6])[0]
+        + struct.unpack("!I", payload[12:16])[0]
     )  # id + src
     res = cache.get(key, None)
     if res is None:
@@ -66,7 +67,7 @@ class Phase1Runner(threading.Thread):
         global connections, tlsconnections
 
         # print("Processing Packet")
-        log.debug("Processing Packet")
+        log.debug("Processing packet...")
 
         ckey = (
             socket.inet_ntoa(payload[12:16]),
@@ -94,9 +95,11 @@ class Phase1Runner(threading.Thread):
                         tlsconnections[ckey].addTLSPacket(p[TCP].payload)
                     else:
                         # print("Creating TLS Connection")
-                        log.debug("Creating TLS Connection")
+                        log.info("Creating TLS connection...")
                         tlsconnections[ckey] = TLSConnection.TLSConnection()
                         tlsconnections[ckey].addTLSPacket(p[TCP].payload)
+
+        log.debug("Processed packet")
 
 
 phase1 = Phase1Runner()
@@ -148,7 +151,11 @@ def print_and_accept(pkt):
 
                         if len(newpayload) > 0:
                             # print 'SENDING DATA',datetime.datetime.now()
-                            log.debug("SENDING DATA {}".format(datetime.datetime.now()))
+                            log.debug(
+                                "SENDING DATA {}".format(
+                                    datetime.datetime.now()
+                                )
+                            )
 
                         padsize = datasize - 7 - len(newpayload)
 
