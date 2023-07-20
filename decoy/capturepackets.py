@@ -26,7 +26,7 @@ import logging
 log = logging.getLogger(__name__)
 logging.basicConfig(
     format="%(asctime)s [%(levelname)s] <%(pathname)s:%(funcName)s> %(message)s",
-    level=logging.DEBUG,
+    level=logging.INFO,
 )
 
 
