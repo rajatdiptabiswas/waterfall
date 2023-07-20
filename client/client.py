@@ -552,7 +552,7 @@ def main():
 
     logging.basicConfig(
         format="%(asctime)s [%(levelname)s] <%(pathname)s:%(funcName)s> %(message)s",
-        level=logging.DEBUG,
+        level=logging.INFO,
     )
 
     waterfall = Waterfall()
