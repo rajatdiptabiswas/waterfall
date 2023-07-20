@@ -14,7 +14,9 @@ from twisted.web import http, proxy
 from browser import FirefoxDriver, PhantomDriver
 from util import HttpResponse
 
-log = logging.getLogger(__name__)
+# log = logging.getLogger(__name__)
+log = logging.getLogger('ous')
+log.setLevel(logging.CRITICAL)
 
 SMALL_RESPONSE_LIMIT = 1024
 
@@ -243,6 +245,7 @@ class RequestCache:
             self.response.set_header("Pragma", "no-cache")
 
             response = self.response.to_raw()
+            log.debug('response={}'.format(response))
             # print(response)
             self.factory.response_received(
                 self.factory.request_id, self.factory.request.cache_key, response
