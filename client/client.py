@@ -256,12 +256,11 @@ class OvertConnection(Protocol):
                 try:
                     if cmd == "C":
                         self.connection_established(newdata, connid)
-                    if cmd == "R":
+                    elif cmd == "R":
                         self.channel_ready()
-                    if cmd == "D":
+                    elif cmd == "D":
                         self.connection_data_received(connid, newdata)
-
-                    if cmd == "F":
+                    elif cmd == "F":
                         self.connection_closed(connid)
                     else:
                         log.error("Invalid command received cmd={}".format(cmd))
