@@ -26,7 +26,7 @@ class BaseDriver(object):
         selenium_logger = logging.getLogger(
             "selenium.webdriver.remote.remote_connection"
         )
-        selenium_logger.setLevel(logging.DEBUG)
+        selenium_logger.setLevel(logging.CRITICAL)
 
     def _initialize_driver(self, driver, config):
         # config.setdefault('window_size', {'width': 1200, 'height': 800})
