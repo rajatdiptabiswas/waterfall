@@ -409,6 +409,8 @@ class RequestCache:
 
 class OvertUserSimulator(object):
     """
+    "The Overt User Simulator (OUS) is essentially a headless browser that creates overt traffic for Waterfall communications. The OUS does so by repeatedly sending requests to specific overt websites set by the client." - The Waterfall of Liberty (2007)
+
     The `OvertUserSimulator` class represents a user simulator that interacts with multiple overt servers. It acts as a proxy and browser to simulate user behavior and perform requests through the overt servers.
     """
 
