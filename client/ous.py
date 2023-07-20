@@ -354,9 +354,9 @@ class OvertUserSimulator(object):
                 self.overt_urls
             )
 
-        # browser_loop = task.LoopingCall(_load_overt)
-        # browser_loop.start(1)
-        reactor.callLater(5, _load_overt)
+        browser_loop = task.LoopingCall(_load_overt)
+        browser_loop.start(1)
+        # reactor.callLater(5, _load_overt)
 
     def add_overt(self, overt):
         self.overts.append(overt)
