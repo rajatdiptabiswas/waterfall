@@ -15,6 +15,18 @@ import uuid
 import datetime
 
 
+log = logging.getLogger("simpleproxy")
+log.setLevel(logging.DEBUG)
+hdlr = logging.StreamHandler()
+hdlr.setLevel(logging.DEBUG)
+hdlr.setFormatter(
+    logging.Formatter(
+        "%(asctime)s (%(name)s) [%(levelname)s] <%(pathname)s:%(funcName)s> %(message)s"
+    )
+)
+log.addHandler(hdlr)
+
+
 class ProxyConnection(object):
     # enable a buffer on connections with this many bytes
     MAX_BUFFER_SIZE = 1024
@@ -102,6 +114,7 @@ class ProxyServer(object):
             if size + 21 <= len(self.datacarry):
                 newpkt = self.datacarry[21 : size + 21]
                 # print ("DATA ",cmd," size",size)
+                log.debug("cmd={} size={}".format(cmd, size))
                 try:
                     if cmd == "O":
                         try:
@@ -112,6 +125,7 @@ class ProxyServer(object):
                     elif cmd == "N":
                         newcon = newpkt
                         # print (newcon)
+                        log.debug("newcon={}".format(newcon))
                         try:
                             clid, ip, port = (
                                 newcon[:16],
@@ -121,7 +135,8 @@ class ProxyServer(object):
                             self.open((ip, port), connid, clid)
 
                         except:
-                            print("ERROR", newcon)
+                            # print("ERROR", newcon)
+                            log.error("newcon={}".format(newcon))
                             traceback.print_exc(file=sys.stderr)
                     elif cmd == "Q":
                         sockid = newpkt[:16]
@@ -167,7 +182,8 @@ class ProxyServer(object):
 
     # open a new proxy connection from the listening socket
     def communicate(self, clientid, conid, CMD, data):
-        print("sendding command", CMD, datetime.datetime.now())
+        # print("sendding command", CMD, datetime.datetime.now())
+        log.info("Sending command {}".format(CMD))
         for c in self.clientsocks:
             c.sendall(
                 "%s%s%s%s%s"
@@ -181,7 +197,8 @@ class ProxyServer(object):
             )
 
     def open(self, server, clientid, clid):
-        print("NEW CONNECTION %s" % server[0])
+        # print("NEW CONNECTION %s" % server[0])
+        log.info("NEW CONNECTION {}".format(server[0]))
         conn = ProxyConnection(server, clientid)
         self.connections[conn.sock] = conn
         self.revcon[conn.conid] = conn.sock
@@ -199,14 +216,3 @@ if __name__ == "__main__":
         serverport = int(dest[1])
     except:
         sys.exit(-1)
-
-    logger = logging.getLogger("simpleproxy")
-    logger.setLevel(logging.DEBUG)
-    hdlr = logging.StreamHandler()
-    hdlr.setLevel(logging.DEBUG)
-    hdlr.setFormatter(
-        logging.Formatter(
-            "%(asctime)s (%(name)s) [%(levelname)s] <%(pahtname)s:%(funcName)s> %(message)s"
-        )
-    )
-    logger.addHandler(hdlr)
