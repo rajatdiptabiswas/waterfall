@@ -470,7 +470,7 @@ class OvertGateway(protocol.ClientFactory):
         self.send_covert_command(message, wait_for_overt=wait_for_overt)
 
     def send_covert_command(self, command, wait_for_overt=True):
-        wait_for_overt = False
+        # wait_for_overt = False
         if wait_for_overt:
             log.info("Buffering covert command {}".format(command))
             self._buffer.write(command)
