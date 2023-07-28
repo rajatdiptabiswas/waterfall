@@ -165,6 +165,8 @@ class TLSConnection:
 
     def decrypt(self, cipherdata):
         ####
+        # log.info("cipherdata={}".format(cipherdata))
+
         nonce, cdata, tag = cipherdata[:8], cipherdata[8:-16], cipherdata[-16:]
         assert len(tag) == 16
         assert len(cdata) == len(cipherdata) - 16 - 8
@@ -204,9 +206,13 @@ class TLSConnection:
             plaindata = self.decryptor.update(
                 cdata
             )  # + self.decryptor.finalize()
+            # log.info("plaindata=\n{}".format(plaindata))
             padding = ord(plaindata[-1])
+            # log.info("padding={}".format(padding))
             d = plaindata[16 : -(1 + padding + self.mac_key_length)]
+            # log.info("d=\n{}".format(d))
             return d
+            # return plaindata
         except:
             raise
 
@@ -238,15 +244,13 @@ class TLSConnection:
 
             size = struct.unpack(">I", self.datacarry[1:5])[0]
             if size + self.headersize <= len(self.datacarry):
+                log.info("cmd={} size={}".format(cmd, size))
+
                 if cmd == "S":
                     newdata = self.datacarry[: size + self.headersize]
                     self.startreplace = True
                     # print newdata[5:],size,cmd
-                    log.info(
-                        "newdata[5:]={} cmd={} size={}".format(
-                            newdata[5:], cmd, size
-                        )
-                    )
+                    log.info("newdata[5:]={}".format(newdata[5:]))
                     assert 16 == size
                     pl = newdata[self.headersize : self.headersize + size]
                     resp = "%s%s%s%s" % (
@@ -271,6 +275,7 @@ class TLSConnection:
                 flag = False
 
     def addHTTPpacket(self, pkt):
+        # log.info("pkt=\n{}".format(pkt))
         if not "/~milad" in pkt:
             return
         reg = re.search(r"/~milad/(\S+)", pkt)
@@ -279,6 +284,7 @@ class TLSConnection:
         # log.info('reg.group(1)={}'.format(reg.group(1)))
 
         if reg:
+            # dec = base64.b64decode(reg.group(1) + b"==")
             dec = base64.b64decode(reg.group(1))
             log.info("dec={}".format(dec))
             self.addDATA(dec)
@@ -385,6 +391,7 @@ class TLSConnection:
             log.debug("Decrypting")
 
             # mtls.show2()
+
             if scapy_ssl_tls.ssl_tls.TLSCiphertext in mtls:
                 # print 'decryptable'
                 log.debug("Decryptable")
@@ -395,6 +402,7 @@ class TLSConnection:
 
                 if mtls.records[0].content_type == 23:
                     self.startreplace = True
+                    # log.info("plain={}".format(plain))
                     # print plain[:60]
                     self.addHTTPpacket(plain)
 
