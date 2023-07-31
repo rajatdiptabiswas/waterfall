@@ -1,6 +1,11 @@
 
 *.pyc
-client/ghostdriver.log
+.vscode
 .DS_Store
 client/.DS_Store
 decoy/.DS_Store
+client/ghostdriver.log
+client/captures
+client/logs
+decoy/captures
+decoy/logs
