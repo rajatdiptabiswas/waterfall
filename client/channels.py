@@ -54,9 +54,12 @@ class AmazonCDNChannel:
 
 class GoogleChannel:
     host = "172.217.17.32"
+    # host = "142.250.217.110"
 
     overt_hosts = [
         "www.google.com",
+        "www.gstatic.com",
+        "encrypted-tbn0.gstatic.com",
         "encrypted-tbn1.gstatic.com",
         "encrypted-tbn2.gstatic.com",
         "encrypted-tbn3.gstatic.com",
