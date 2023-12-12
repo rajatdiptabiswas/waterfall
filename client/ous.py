@@ -200,6 +200,32 @@ class OvertRequest(http.Request):
         response_size = len(request_cache[cache_key])
         use_as_covert = use_as_covert and response_size <= SMALL_RESPONSE_LIMIT
 
+        def additive_decrease_multiplicative_increase(covert_data_available):
+            global SMALL_RESPONSE_LIMIT
+            response_sizes = request_cache.get_response_sizes()
+
+            threshold = SMALL_RESPONSE_LIMIT
+            min_threshold = response_sizes[0]
+            max_threshold = response_sizes[-1]
+            step_size = 1024
+            increase_factor = 2
+
+            if covert_data_available and not use_as_covert:
+                # Perform multiplicative increase
+                threshold = min(int(threshold * increase_factor), max_threshold)
+                log.critical("Multiplicative increase: New threshold = {}".format(threshold))
+            elif not covert_data_available and use_as_covert:
+                # Perform additive decrease
+                threshold = max(threshold - step_size, min_threshold)
+                log.critical("Additive decrease: New threshold = {}".format(threshold))
+            
+            SMALL_RESPONSE_LIMIT = threshold
+
+        # additive_decrease_multiplicative_increase()
+
+        log.info("OvertRequest - MIN MAX RESPONSE SIZE = {} {}".format(request_cache._min_response_size, request_cache._max_response_size))
+        log.info("OvertRequest - RESPONSE SIZES = {}".format(request_cache.get_response_sizes()))
+
         # if response_size <= SMALL_RESPONSE_LIMIT:
         log.debug(
             "OvertRequest - response_size={} <= SMALL_RESPONSE_LIMIT={}? {}\nrequest={}".format(
@@ -213,6 +239,8 @@ class OvertRequest(http.Request):
         # TODO: MAJOR, send POST requests in vanilla mode
         if self.method == "GET":
             if overt:
+                additive_decrease_multiplicative_increase(overt._buffer.has_data())
+
                 overt.send_overt_request(
                     self.build_http_request({"connection": "keep-alive"}),
                     use_as_covert=use_as_covert,
@@ -318,6 +346,8 @@ class RequestCache:
 
     def __init__(self):
         self._cache = {}
+        self._min_response_size = float('inf')
+        self._max_response_size = 0
         self.__contains__ = self._cache.__contains__
         self.__getitem__ = self._cache.__getitem__
         self._pending_requests = {}
@@ -340,11 +370,20 @@ class RequestCache:
         )
 
         return d
+    
+    def get_response_sizes(self):
+        return sorted([len(x) for x in self._cache.values()])
 
     def response_received(self, request_id, path, response):
         self._cache[path] = response
         # print('CACHE', path, len(response))
-        log.debug("Cache {} {}".format(path, len(response)))
+        self._min_response_size = min(self._min_response_size, len(response))
+        self._max_response_size = max(self._max_response_size, len(response))
+        log.debug(
+            "RequestCache - cache[{}]=response len(response)={} response=\n{}".format(
+                path, len(response), response
+            )
+        )
         d = self._pending_requests.pop(request_id)
         d.callback(response)
 
