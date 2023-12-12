@@ -233,8 +233,19 @@ class OvertRequest(http.Request):
             
             SMALL_RESPONSE_LIMIT = max_threshold
 
+        def percentile_threshold(percentile):
+            global SMALL_RESPONSE_LIMIT
+            response_sizes = request_cache.get_response_sizes()
+
+            threshold = response_sizes[int((percentile / 100) * (len(response_sizes) - 1))]
+            
+            log.critical("Percentile threshold ({}%): New threshold = {}".format(percentile, threshold))
+
+            SMALL_RESPONSE_LIMIT = threshold
+
         # additive_decrease_multiplicative_increase()
         # max_threshold()
+        # percentile(25)
 
         log.info("OvertRequest - MIN MAX RESPONSE SIZE = {} {}".format(request_cache._min_response_size, request_cache._max_response_size))
         log.info("OvertRequest - RESPONSE SIZES = {}".format(request_cache.get_response_sizes()))
