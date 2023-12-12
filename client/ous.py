@@ -1,7 +1,7 @@
 import re
 import logging
 import urllib
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from urlparse import urlparse
 
@@ -291,18 +291,25 @@ class RequestCache:
         #     self.factory.response_received(self.factory.request_id, self.factory.request.cache_key, response)
 
         def done(self):
-            self.response.set_header("Expires", "Tue, 03 Jul 2001 06:00:00 GMT")
+            # log.critical("CacheRequestProtocol - response=\n{}".format(self.response.to_raw()))
+
+            # self.response.print_headers()
+
+            # self.response.set_header("Expires", "Tue, 03 Jul 2001 06:00:00 GMT")
+            self.response.set_header("Expires", (datetime.now() - timedelta(days=365)).strftime("%a, %d %b %Y %H:%M:%S GMT"))
             self.response.set_header(
-                "Last-Modified", datetime.now().strftime("%a, %d %b %Y %H:%M:%S GMT")
+                "Last-Modified", (datetime.now() + timedelta(days=365)).strftime("%a, %d %b %Y %H:%M:%S GMT")
             )
             self.response.set_header(
                 "Cache-Control", "no-store, no-cache, must-revalidate, max-age=0"
             )
-            self.response.set_header("Cache-Control", "post-check=0, pre-check=0")
+            # self.response.set_header("Cache-Control", "post-check=0, pre-check=0")
             self.response.set_header("Pragma", "no-cache")
 
+            # self.response.print_headers()
+
             response = self.response.to_raw()
-            log.debug('response={}'.format(response))
+            log.debug("CacheRequestProtocol - response=\n{}".format(response))
             # print(response)
             self.factory.response_received(
                 self.factory.request_id, self.factory.request.cache_key, response
