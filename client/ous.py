@@ -221,7 +221,20 @@ class OvertRequest(http.Request):
             
             SMALL_RESPONSE_LIMIT = threshold
 
+        def max_threshold():
+            global SMALL_RESPONSE_LIMIT
+            response_sizes = request_cache.get_response_sizes()
+
+            threshold = SMALL_RESPONSE_LIMIT
+            min_threshold = response_sizes[0]
+            max_threshold = response_sizes[-1]
+
+            log.critical("Max threshold: New threshold = {}".format(max_threshold))
+            
+            SMALL_RESPONSE_LIMIT = max_threshold
+
         # additive_decrease_multiplicative_increase()
+        # max_threshold()
 
         log.info("OvertRequest - MIN MAX RESPONSE SIZE = {} {}".format(request_cache._min_response_size, request_cache._max_response_size))
         log.info("OvertRequest - RESPONSE SIZES = {}".format(request_cache.get_response_sizes()))
