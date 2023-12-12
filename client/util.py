@@ -128,7 +128,7 @@ class HttpResponse:
                     self.finished = True
                 self._mode = "body"
             else:
-                key, val = re.match("(.+)\s*[:]\s*(.+)", line).groups()
+                key, val = re.match("(.+?)\s*[:]\s*(.+)", line).groups()
                 self.headers[key.lower()] = val
 
     def set_header(self, header, value):
@@ -139,6 +139,11 @@ class HttpResponse:
 
     def has_header(self, header):
         return header.lower() in self.headers
+    
+    def print_headers(self):
+        for key, value in self.headers.iteritems():
+            print str(key) + " -> " + str(value)
+        print
 
     def to_raw(self):
         headers = self.headers
