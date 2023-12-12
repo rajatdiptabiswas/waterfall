@@ -19,6 +19,7 @@ log = logging.getLogger("ous")
 log.setLevel(logging.CRITICAL)
 
 SMALL_RESPONSE_LIMIT = 1024
+OUS_RATE = 3 # OUS sends a request every `OUS_RATE` seconds
 
 
 class ProxyUpstreamProtocol(protocol.Protocol):
@@ -427,8 +428,8 @@ class OvertUserSimulator(object):
             )
 
         browser_loop = task.LoopingCall(_load_overt)
-        browser_loop.start(1)
-        # reactor.callLater(5, _load_overt)
+        browser_loop.start(OUS_RATE)
+        # reactor.callLater(10, _load_overt)
 
     def add_overt(self, overt):
         log.info(
