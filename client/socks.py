@@ -24,10 +24,12 @@ class Socks5Protocol(protocol.Protocol):
         (ver, nmethods) = struct.unpack("!BB", data[:2])
         if ver != 5:
             # we do SOCKS5 only
+            log.error("Socks5Protocol - Not SOCKS5")
             self.transport.loseConnection()
             return
         if nmethods < 1:
             # not SOCKS5 protocol?!
+            log.error("Socks5Protocol - Not SOCKS5")
             self.transport.loseConnection()
             return
         methods = data[2 : 2 + nmethods]
@@ -49,6 +51,7 @@ class Socks5Protocol(protocol.Protocol):
         (ver, cmd, rsv, atyp) = struct.unpack("!BBBB", data[:4])
         if ver != 5 or rsv != 0:
             # protocol violation
+            log.error("Socks5Protocol - Not SOCKS5")
             self.transport.loseConnection()
             return
         data = data[4:]
@@ -66,6 +69,7 @@ class Socks5Protocol(protocol.Protocol):
                 raise RuntimeError("IPV6 not supported")
             else:
                 # protocol violation
+                log.error("Socks5Protocol - Not SOCKS5")
                 self.transport.loseConnection()
                 return
             (port) = struct.unpack("!H", data[:2])
@@ -96,7 +100,7 @@ class Socks5Protocol(protocol.Protocol):
 
     def perform_connect(self, host, port):
         if hasattr(self.factory, "on_socks_connect"):
-            log.debug("Socks5Protocol on_socks_connect {}:{}".format(host, port))
+            log.debug("Socks5Protocol - on_socks_connect {}:{}".format(host, port))
             self.factory.on_socks_connect(self, host, port)
         # if self.on_connect is not None:
         #     self.on_connect(self, host, port)

@@ -1,6 +1,9 @@
 import base64
 import math
 
+import logging
+
+log = logging.getLogger(__name__)
 
 class AmazonChannel:
     # host = '54.239.25.192'
@@ -80,6 +83,7 @@ class GoogleChannel:
         return int(3 * math.floor(overt_data_size / 4.0))
 
     def wrap_message(self, data):
+        log.debug("data={}".format(data))
         return (
             "GET /search/~milad/%s HTTP/1.1\r\nHOST: google.com\r\nConnection: keep-alive\r\nKeep-Alive: timeout=1200, max=1000000\r\n\r\n"
             % base64.b64encode(data)

@@ -22,7 +22,7 @@ class BaseDriver(object):
         self.ready_condition = threading.Condition()
         self.task_queue = Queue()
 
-        # turn of logging
+        # turn off logging
         selenium_logger = logging.getLogger(
             "selenium.webdriver.remote.remote_connection"
         )
@@ -71,11 +71,13 @@ class BaseDriver(object):
     def get(self, url):
         try:
             # self.driver.set_page_load_timeout(50)
+            log.debug('Opening {}...'.format(url))
             self.driver.get(url)
         except TimeoutException:
             pass
 
     def queue_url(self, url):
+        log.debug('Queueing {}...'.format(url))
         self.task_queue.put_nowait(url)
 
     def close(self):
