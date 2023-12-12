@@ -15,7 +15,7 @@ from browser import FirefoxDriver, PhantomDriver
 from util import HttpResponse
 
 # log = logging.getLogger(__name__)
-log = logging.getLogger('ous')
+log = logging.getLogger("ous")
 log.setLevel(logging.CRITICAL)
 
 SMALL_RESPONSE_LIMIT = 1024
@@ -29,24 +29,33 @@ class ProxyUpstreamProtocol(protocol.Protocol):
 
     def connectionMade(self):
         self.connected = True
-        self.proxy = self.factory.proxy
+        self.proxy = self.factory.proxy # ProxyServerProtocol
         if self.proxy.connected:
             self.proxy.remote_connected(self)
         else:
             self.lose_connection()
 
     def send_upstream(self, data):
+        log.info(
+            "ProxyUpstreamProtocol - Sending upstream data... ProxyUpstreamProtocol.transport.write(data) len(data)={}".format(len(data))
+        )
         self.transport.write(data)
 
     def send_downstream(self, data):
+        log.info(
+            "ProxyUpstreamProtocol - Sending downstream data... ProxyServerProtocol.transport.write(data) len(data)={}".format(
+                len(data)
+            )
+        )
         self.proxy.transport.write(data)
 
     def connectionLost(self, *args):
-        log.debug("Proxy remote connection closed")
+        log.debug("ProxyUpstreamProtocol - Proxy remote connection closed")
         self.connected = False
         self.proxy.lose_connection()
 
     def lose_connection(self):
+        log.info("ProxyUpstreamProtocol.transport.loseConnection() {}".format(self.transport.getPeer()))
         if self.connected:
             self.transport.loseConnection()
 
@@ -65,19 +74,23 @@ class ProxyServerProtocol(basic.LineReceiver):
         if not len(line.strip()):
             self.end_of_headers()
 
-        log.debug("ProxyServerProtocol line received - {}".format(line))
+        log.debug("ProxyServerProtocol - Line received - {}".format(line))
 
         match = re.match("CONNECT (.+)[:](\d+) HTTP/1[.]\d", line)
 
         if match is None:
+            log.debug("ProxyServerProtocol - No CONNECT line received")
             return
 
         host, port = match.groups()
+        log.info("ProxyServerProtocol - {}:{} found".format(host, port))
         self.address = (host, int(port))
 
     def rawDataReceived(self, data):
         if self.remote is None:
-            log.error("Data received before remote was connected, aborting")
+            log.error(
+                "ProxyServerProtocol - Data received before remote was connected, aborting"
+            )
             self.transport.loseConnection()
             return
 
@@ -85,7 +98,7 @@ class ProxyServerProtocol(basic.LineReceiver):
 
     def end_of_headers(self):
         if self.address is None:
-            log.error("No CONNECT received, aborting")
+            log.error("ProxyServerProtocol - No CONNECT received, aborting")
             self.transport.loseConnection()
             return
 
@@ -93,8 +106,8 @@ class ProxyServerProtocol(basic.LineReceiver):
 
         if self.ous.is_overt_address(self.address[0]):
             # print("YES {}".format(self.address[0]))
-            log.debug(
-                "Overt address TRUE - Starting covert proxy session {}:{}".format(
+            log.info(
+                "Overt address {}? TRUE - Starting covert proxy session localhost:{}".format(
                     self.address[0], self.ous.proxy_handler_port
                 )
             )
@@ -102,9 +115,9 @@ class ProxyServerProtocol(basic.LineReceiver):
             self.start_proxy("127.0.0.1", self.ous.proxy_handler_port)
         else:
             # print("NO {}".format(self.address[0]))
-            log.debug(
-                "Overt address FALSE - Starting vanilla proxy session {}:{}".format(
-                    self.address[0], self.address[1]
+            log.info(
+                "Overt address {}? FALSE - Starting vanilla proxy session {}:{}".format(
+                    self.address[0], self.address[0], self.address[1]
                 )
             )
             # log.debug("Starting vanilla proxy session")
@@ -114,19 +127,31 @@ class ProxyServerProtocol(basic.LineReceiver):
         factory = protocol.ClientFactory()
         factory.protocol = ProxyUpstreamProtocol
         factory.proxy = self
+        log.info(
+            "Connect TCP {}:{} ClientFactory:ProxyUpstreamProtocol".format(host, port)
+        )
         reactor.connectTCP(host, port, factory)
 
     def remote_connected(self, remote):
-        self.remote = remote
+        self.remote = remote # ProxyUpstreamProtocol
         self.transport.write("HTTP/1.1 200 OK\r\n\r\n")
 
     def connectionLost(self, *args):
-        log.debug("Proxy connection closed")
+        log.info(
+            "ProxyServerProtocol - Proxy connection closed {}:{}".format(
+                self.address[0], self.address[1]
+            )
+        )
         self.connected = False
         if self.remote is not None:
             self.remote.lose_connection()
 
     def lose_connection(self):
+        log.info(
+            "ProxyServerProtocol.transport.loseConnection() {} {}:{}".format(
+                self.transport.getPeer(), self.address[0], self.address[1]
+            )
+        )
         if self.connected:
             self.transport.loseConnection()
 
@@ -138,7 +163,10 @@ class OvertRequest(http.Request):
 
         # print(self.uri)
         self.content_data = self.content.read()
+        # log.info("OvertRequest - content_data=\n{}".format(self.content_data))
+        log.info("OvertRequest - len(content_data)={}".format(len(self.content_data)))
         use_as_covert = True  # self.method == 'GET'
+        log.info("OvertRequest - getRequestHostname()={}".format(self.getRequestHostname()))
         overt = ous.get_overt_connection(self.getRequestHostname())
         assert overt is not None
 
@@ -151,17 +179,35 @@ class OvertRequest(http.Request):
         )
         self.cache_key = cache_key
 
+        log.info(
+            "OvertRequest - cache_key={} in request_cache? {}".format(
+                cache_key, cache_key in request_cache
+            )
+        )
+
         # Ideally only get requested be cached, but then I have to be able to get the response back from
         # the channel to have something to send back in response
         if use_as_covert and cache_key not in request_cache:
             # print("Populating Cache", cache_key)
-            log.debug("Populating cache {}".format(cache_key))
+            log.info("OvertRequest - Populating cache {}".format(cache_key))
             return request_cache.populate_cache(self).addCallback(
                 self.cache_response_received
             )
 
+        log.debug("OvertRequest - response=\n{}".format(request_cache[cache_key]))
+
         response_size = len(request_cache[cache_key])
         use_as_covert = use_as_covert and response_size <= SMALL_RESPONSE_LIMIT
+
+        # if response_size <= SMALL_RESPONSE_LIMIT:
+        log.debug(
+            "OvertRequest - response_size={} <= SMALL_RESPONSE_LIMIT={}? {}\nrequest={}".format(
+                response_size,
+                SMALL_RESPONSE_LIMIT,
+                response_size <= SMALL_RESPONSE_LIMIT,
+                cache_key
+            )
+        )
 
         # TODO: MAJOR, send POST requests in vanilla mode
         if self.method == "GET":
@@ -179,13 +225,16 @@ class OvertRequest(http.Request):
                 )
 
         # Respond the request from cache
-        log.debug("Responding from cache for {}".format(self.uri))
+        log.info("OvertRequest - Responding from cache for {}".format(self.uri))
         self.transport.write(request_cache[cache_key])
 
     def build_http_request(self, headers=None):
         request_lines = ["{} {} {}".format(self.method, self.uri, self.clientproto)]
 
         _headers = self.getAllHeaders()
+
+        log.info("OvertRequest - _headers={}".format(_headers))
+
         if headers is not None:
             _headers.update(headers)
 
@@ -194,6 +243,9 @@ class OvertRequest(http.Request):
 
         request_lines.append("\r\n")
         request_lines.append(self.content_data)
+
+        log.info("OvertRequest - Built HTTP request - request_lines=\n{}".format(request_lines))
+
         return "\r\n".join(request_lines)
 
     def cache_response_received(self, response):
@@ -211,11 +263,15 @@ class RequestCache:
 
         def connectionLost(self, reason=None):
             # print("Connection Lost", reason)
-            log.debug("Connection lost {}".format(reason))
+            log.info("Connection lost {}".format(reason))
             pass
 
         def send_request(self):
-            log.debug("Sending cache request for {}".format(self.factory.request.uri))
+            log.info(
+                "CacheRequestProtocol - Sending request {}".format(
+                    self.factory.request.uri
+                )
+            )
             # request = self.factory.request.build_http_request({'connection': 'close'})
             request = self.factory.request.build_http_request()
             self.transport.write(request)
@@ -268,6 +324,9 @@ class RequestCache:
         factory.request = request
         factory.response_received = self.response_received
         factory.request_id = request_id
+        log.info(
+            "Connect SSL {}:{} ClientFactory:CacheRequestProtocol".format(request.getRequestHostname(), 443)
+        )
         reactor.connectSSL(
             request.getRequestHostname(), 443, factory, ssl.ClientContextFactory()
         )
@@ -300,8 +359,8 @@ class OvertUserSimulator(object):
         self.overt_urls = overt_urls
         self.overt_url_iterator = 0
 
-        log.debug("OvertUserSimulator overts - {}".format(self.overts))
-        log.debug("OvertUserSimulator overt_urls - {}".format(self.overt_urls))
+        log.debug("OvertUserSimulator - overts - {}".format(self.overts))
+        log.info("OvertUserSimulator - overt_urls - {}".format(self.overt_urls))
 
         self.browser = None
         self.request_cache = RequestCache()
@@ -315,6 +374,7 @@ class OvertUserSimulator(object):
         proxy_factory = protocol.ServerFactory()
         proxy_factory.protocol = ProxyServerProtocol
         proxy_factory.ous = self
+        log.info("Starting proxy... Listening TCP on port {}... ServerFactory:ProxyServerProtocol".format(self.proxy_port))
         reactor.listenTCP(self.proxy_port, proxy_factory)
 
     def start_proxy_handler(self):
@@ -326,6 +386,11 @@ class OvertUserSimulator(object):
         httpchannel.ous = self
         webserver = protocol.ServerFactory()
         webserver.protocol = httpchannel
+        log.info(
+            "Starting proxy handler... Listening SSL on port {}... ServerFactory:OvertHTTPChannel:OvertRequest".format(
+                self.proxy_handler_port
+            )
+        )
         reactor.listenSSL(
             self.proxy_handler_port,
             webserver,
@@ -340,14 +405,21 @@ class OvertUserSimulator(object):
                 "verify_certs": False,
             }
         )
+        log.info(
+            "Starting PhantomJS browser using SSL proxy 127.0.0.1:{}".format(
+                self.proxy_port
+            )
+        )
         self.browser.start()
 
         def _load_overt():
-            log.debug(
-                "Queueing overt URL to OUS browser {}".format(
+            log.info(
+                "OvertUserSimulator - Queueing overt URL to OUS browser {}".format(
                     self.overt_urls[self.overt_url_iterator]
                 )
             )
+
+            log.info("OvertUserSimulator - overt_urls={}".format(self.overt_urls))
 
             self.browser.queue_url(self.overt_urls[self.overt_url_iterator])
             self.overt_url_iterator = (self.overt_url_iterator + 1) % len(
@@ -359,6 +431,9 @@ class OvertUserSimulator(object):
         # reactor.callLater(5, _load_overt)
 
     def add_overt(self, overt):
+        log.info(
+            "OvertUserSimulator - Adding new overt {} to overts list".format(overt)
+        )
         self.overts.append(overt)
 
     def is_overt_address(self, host):
