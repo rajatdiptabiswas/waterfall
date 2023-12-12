@@ -9,6 +9,7 @@ from twisted.internet.protocol import Protocol, Factory, ClientFactory
 
 from channels import *
 from ous import OvertUserSimulator
+import ous
 from socks import Socks5Protocol
 from util import Buffer
 
@@ -454,6 +455,10 @@ class OvertGateway(protocol.ClientFactory):
                 use_as_covert, covert_size, self._buffer.has_data(), request
             )
         )
+
+        # log.info("OUS SMALL_RESPONSE_LIMIT = {}".format(ous.SMALL_RESPONSE_LIMIT))
+        # ous.SMALL_RESPONSE_LIMIT += 1024
+        # log.info("OUS SMALL_RESPONSE_LIMIT + 1024 = {}".format(ous.SMALL_RESPONSE_LIMIT))
 
         if use_as_covert and covert_size and self._buffer.has_data():
             covert_data = self._buffer.read(covert_size)
