@@ -75,16 +75,16 @@ class OvertConnection(Protocol):
         self.factory.connection_closed(connid)
 
     def establish_tls(self):
-        log.info("Establishing TLS...")
+        log.info("OvertConnection - Establishing TLS...")
         d = self._tls_hello()
         d.addCallback(self._tls_client_key_exchange)
         d.addCallback(self._tls_finish_handshake)
         d.addCallback(partial(self.do_next, self.add_tls_pkt))
-        d.addBoth(deferred_completed, "TLS established")
+        d.addBoth(deferred_completed, "OvertConnection - TLS established")
         return d
 
     def _tls_hello(self):
-        log.info("Sending TLS hello...")
+        log.info("OvertConnection - Sending TLS hello...")
         # pec = '006d000b000403000102000a00340032000e000d0019000b000c00180009000a00160017000800060007001400150004000500120013000100020003000f0010001100230000000d0020001e060106020603050105020503040104020403030103020303020102020203000f000101'
         # ur = b''.join([chr(int(pec[i:i + 2], 16)) for i in range(0, len(pec), 2)])
 
@@ -125,12 +125,12 @@ class OvertConnection(Protocol):
         self.tls_sendall(client_hello)
         deferred = self.tls_recvall()
 
-        deferred.addBoth(deferred_completed, "Completed sending TLS hello")
+        deferred.addBoth(deferred_completed, "OvertConnection - Completed sending TLS hello")
 
         return deferred
 
     def _tls_client_key_exchange(self, *args):
-        log.info("Making TLS key exchange...")
+        log.info("OvertConnection - Making TLS key exchange...")
 
         client_key_exchange = TLSRecord(version=tls_version) / TLSHandshakes(
             handshakes=[TLSHandshake() / self.tls_ctx.get_client_kex_data("LOAD")]
@@ -140,12 +140,12 @@ class OvertConnection(Protocol):
 
         deferred = self.tls_recvall()
 
-        deferred.addBoth(deferred_completed, "Completed TLS key exchange")
+        deferred.addBoth(deferred_completed, "OvertConnection - Completed TLS key exchange")
 
         return deferred
 
     def _tls_finish_handshake(self, *args):
-        log.info("Finishing TLS handshake...")
+        log.info("OvertConnection - Finishing TLS handshake...")
 
         self.tls_sendall(
             TLSRecord(version=tls_version)
@@ -157,7 +157,7 @@ class OvertConnection(Protocol):
         )
         deferred = self.tls_recvall()
 
-        deferred.addBoth(deferred_completed, "Finished TLS handshake")
+        deferred.addBoth(deferred_completed, "OvertConnection - Finished TLS handshake")
 
         return deferred
 
@@ -200,7 +200,7 @@ class OvertConnection(Protocol):
             d.callback(records)
 
     def _deferred_error(self, err):
-        log.error("Error occured in deferred callback")
+        log.error("OvertConnection - Error occured in deferred callback")
         log.error(err)
         log.error(err.getBriefTraceback())
 
@@ -211,7 +211,7 @@ class OvertConnection(Protocol):
 
     def dataReceived(self, data):
         if self.state is None:
-            log.info("BUFFERING...")
+            log.info("OvertConnection - BUFFERING...")
             self._buffer.append(data)
             return
         elif len(self._buffer):
@@ -249,7 +249,7 @@ class OvertConnection(Protocol):
             size = struct.unpack(">I", self._datacarry[17:21])[0]
 
             # print('pkt_riecive {} {}'.format(cmd, size))
-            log.info("Packet received cmd={} size={}".format(cmd, size))
+            log.info("OvertConnection - Packet received command=%s size=%s connection_id=`%s`", cmd, size, connid)
 
             if size + self.HEADER_SIZE <= len(self._datacarry):
                 newdata = self._datacarry[self.HEADER_SIZE : self.HEADER_SIZE + size]
@@ -263,7 +263,7 @@ class OvertConnection(Protocol):
                     elif cmd == "F":
                         self.connection_closed(connid)
                     else:
-                        log.error("Invalid command received cmd={}".format(cmd))
+                        log.error("OvertConnection - Invalid command received cmd={}".format(cmd))
                         raise ValueError("Unknown command {}".format(cmd))
                 except:
                     pass
@@ -305,12 +305,15 @@ class OvertConnection(Protocol):
                 flag = False
 
     def send(self, data, expected_response_size=None):
+        log.info('OvertConnection - Sent request - %s', data.split('\n')[0])
+        # log.info('OvertConnection - data=\n%s', data)
         self.tls_sendall(TLSPlaintext(data=data))
 
 
 class CommandFactory:
     @staticmethod
     def initialize_relay(channel_uuid):
+        log.info("CommandFactory - command=S channel_uuid=`%s`", channel_uuid)
         return "%s%s%s" % (
             struct.pack(">c", "S"),
             struct.pack(">I", len(channel_uuid)),
@@ -319,6 +322,7 @@ class CommandFactory:
 
     @staticmethod
     def new_connection(addr, port, con_uuid):
+        log.info("CommandFactory - command=N address=%s port=%s connection_id=`%s`", addr, port, con_uuid)
         data = "%s%s:%s" % (con_uuid, addr, port)
         return "%s%s%s" % (
             struct.pack(">c", "N"),
@@ -328,6 +332,7 @@ class CommandFactory:
 
     @staticmethod
     def close_connection(conn_id):
+        log.info("CommandFactory - command=Q connection_id=`%s`", conn_id)
         return "%s%s%s" % (
             struct.pack(">c", "Q"),
             struct.pack(">I", len(conn_id)),
@@ -336,6 +341,7 @@ class CommandFactory:
 
     @staticmethod
     def data(data, conn_id):
+        log.info("CommandFactory - command=O connection_id=`%s`", conn_id)
         data = "%s%s" % (conn_id, data)
         return "%s%s%s" % (
             struct.pack(">c", "O"),
@@ -360,7 +366,8 @@ class OvertGateway(protocol.ClientFactory):
 
         self.overt_connection = None
 
-        self._covert_buffers = {}
+        # rajat - `_covert_buffers` not used
+        # self._covert_buffers = {}
         self._buffer = Buffer()
         self.pending_connections = {}
         self.connections = {}
@@ -368,20 +375,21 @@ class OvertGateway(protocol.ClientFactory):
         self.on_channel_ready = Deferred()
 
     def start_channel(self):
+        log.info("OvertGateway - Connect TCP {}:{} OvertGateway:OvertConnection".format(self.channel.host, self.channel.port))
         reactor.connectTCP(self.channel.host, self.channel.port, self)
 
     def channel_connected(self, channel):
         self.overt_connection = channel
 
-        log.info("Initializing overt channel...")
+        log.info("OvertGateway - Initializing overt channel...")
 
         d = self.overt_connection.establish_tls()
         d.addCallback(self.init_relay)
 
-        d.addBoth(deferred_completed, "Finished initializing overt channel")
+        d.addBoth(deferred_completed, "OvertGateway - Finished initializing overt channel")
 
     def channel_ready(self, *args):
-        log.info("Channel ready")
+        log.info("OvertGateway - Channel ready")
         self.new_connection = self._new_connection
         self.register_connection = self._register_connection
         self.close_connection = self._close_connection
@@ -402,7 +410,7 @@ class OvertGateway(protocol.ClientFactory):
         # del self.connections[connid]
 
     def init_relay(self, *args):
-        log.info("Initializing relay...")
+        log.info("OvertGateway - Initializing relay...")
 
         # if not self.channel.support_upstream:
         #     log.info("Non need, channel doesn't support upstream")
@@ -414,7 +422,7 @@ class OvertGateway(protocol.ClientFactory):
             CommandFactory.initialize_relay(data), wait_for_overt=False
         )
 
-        log.info("Finished initializing relay")
+        log.info("OvertGateway - Finished initializing relay")
 
     def _new_connection(self, addr, port, conn_uuid):
         command = CommandFactory.new_connection(addr, port, conn_uuid)
@@ -441,11 +449,17 @@ class OvertGateway(protocol.ClientFactory):
             else 0
         )
 
+        log.debug(
+            "OvertGateway - use_as_covert={} covert_size={} _buffer.has_data()={}\nrequest=\n{}".format(
+                use_as_covert, covert_size, self._buffer.has_data(), request
+            )
+        )
+
         if use_as_covert and covert_size and self._buffer.has_data():
             covert_data = self._buffer.read(covert_size)
             wrapped_data = self.channel.wrap_message(covert_data)
             log.debug(
-                "Sending {} COVERT data on {}, total wrapped data size {}".format(
+                "OvertGateway - Sending {} COVERT data on {}, total wrapped data size {}".format(
                     len(covert_data), self.channel.host, len(wrapped_data)
                 )
             )
@@ -459,27 +473,27 @@ class OvertGateway(protocol.ClientFactory):
             )
         else:
             log.debug(
-                "Sending {} OVERT data on {}".format(len(request), self.channel.host)
+                "OvertGateway - Sending {} OVERT data on {}".format(len(request), self.channel.host)
             )
             log.debug("<<< OVERT DATA >>>\n{}".format(request))
             self.overt_connection.send(request)
 
     def send_covert_data(self, data, connid, wait_for_overt=True):
-        log.info("Sending covert data for connection {}".format(connid))
+        log.info("OvertGateway - Sending covert data connection_id=`%s`", connid)
         message = CommandFactory.data(data, connid)
         self.send_covert_command(message, wait_for_overt=wait_for_overt)
 
     def send_covert_command(self, command, wait_for_overt=True):
         # wait_for_overt = False
         if wait_for_overt:
-            log.info("Buffering covert command {}".format(command))
+            log.info("OvertGateway - Buffering covert command {}".format(command[:1]))
             self._buffer.write(command)
         else:
-            log.info("Sending covert command {}".format(command))
+            log.info("OvertGateway - Sending covert command {}".format(command[:1]))
             self.overt_connection.send(self.channel.wrap_message(command))
 
     def raise_channel_not_ready(self, *args, **kwargs):
-        raise ChannelNotReadyError("Channel has not been initialized yet")
+        raise ChannelNotReadyError("OvertGateway - Channel has not been initialized yet")
 
 
 class CovertConnection:
@@ -494,7 +508,7 @@ class CovertConnection:
         self.connid = None
 
     def make_connection(self):
-        log.info("Connecting to {}:{}...".format(self.addr, self.port))
+        log.info("CovertConnection - Connecting to {}:{}...".format(self.addr, self.port))
 
         d = self.overt.new_connection(self.addr, self.port, self.uuid)
         d.addCallback(self.connection_made)
@@ -503,7 +517,7 @@ class CovertConnection:
         return d
 
     def connection_made(self, connid):
-        log.info("Connection established")
+        log.info("CovertConnection - Connection established connection_id=`%s`", connid)
 
         self.connid = connid
         self.overt.register_connection(self.connid, self)
@@ -511,10 +525,12 @@ class CovertConnection:
         self.socks_conn.start_remote_communication(self)
 
     def connection_failed(self, err):
-        log.error("Connection could not be established")
+        log.error("CovertConnection - Connection could not be established")
         raise err
 
     def data_received(self, data):
+        log.info("CovertConnection - Sending data to Firefox")
+        # log.info("CovertConnection - Sending data to Firefox\n%s", data)
         self.socks_conn.transport.write(data)
 
     def remote_closed(self):
@@ -559,6 +575,7 @@ def main():
     socks_factory = protocol.ServerFactory()
     socks_factory.on_socks_connect = waterfall.new_covert_connection
     socks_factory.protocol = Socks5Protocol
+    log.info("Listen TCP on port 2020... ServerFactory:Socks5Protocol")
     reactor.listenTCP(2020, socks_factory)
 
     # channels = [AmazonChannel()]
@@ -579,8 +596,25 @@ def main():
 
     connect_overt()
 
-    # queries = ['black', 'blue', 'red', 'random', 'nature', 'sky', 'building', 'wallpaper', 'town',
-    #            'space', 'people', 'house', 'bear', 'water', 'atom', 'cow', 'icecream']
+    # queries = [
+    #     "black",
+    #     "blue",
+    #     "red",
+    #     "random",
+    #     "nature",
+    #     "sky",
+    #     "building",
+    #     "wallpaper",
+    #     "town",
+    #     "space",
+    #     "people",
+    #     "house",
+    #     "bear",
+    #     "water",
+    #     "atom",
+    #     "cow",
+    #     "icecream",
+    # ]
     queries = ["nature"]
     overt_urls = [
         "https://www.google.com/search?site=&tbm=isch&q={}".format(x) for x in queries
