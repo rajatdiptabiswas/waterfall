@@ -25,6 +25,8 @@ import logging
 
 log = logging.getLogger(__name__)
 
+RECEIVE_BYTES = 4096 # rajat - 4096 default
+
 
 class RelayManager:
     def __init__(self):
@@ -73,7 +75,7 @@ class RelayManager:
         while True:
             r, w, e = select.select([self.conn], [], [])
             if r:
-                msg = self.conn.recv(4096)
+                msg = self.conn.recv(RECEIVE_BYTES)
                 log.debug(
                     "Get data from ServerConnection {}".format(
                         datetime.datetime.now()
