@@ -206,6 +206,11 @@ class TLSConnection:
             plaindata = self.decryptor.update(
                 cdata
             )  # + self.decryptor.finalize()
+            plaindata_line = plaindata.split("\n")[0]
+            if plaindata_line.find("HTTP") != -1:
+                log.warning(
+                    "TLSConnection - DECRYPTED DATA - %s", plaindata_line
+                )
             log.debug("TLSConnection - DECRYPTED DATA\n%s", plaindata)
             padding = ord(plaindata[-1])
             # log.info("padding={}".format(padding))
