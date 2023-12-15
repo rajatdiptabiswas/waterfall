@@ -14,17 +14,16 @@ import struct
 import uuid
 import datetime
 
-
-log = logging.getLogger("simpleproxy")
-log.setLevel(logging.DEBUG)
+log = logging.getLogger("proxy")
 hdlr = logging.StreamHandler()
 hdlr.setLevel(logging.DEBUG)
 hdlr.setFormatter(
     logging.Formatter(
-        "%(asctime)s (%(name)s) [%(levelname)s] <%(pathname)s:%(funcName)s> %(message)s"
+        "%(asctime)s [%(levelname)s] (%(name)s) <%(pathname)s:%(funcName)s> %(message)s"
     )
 )
 log.addHandler(hdlr)
+log.propagate = False
 
 
 class ProxyConnection(object):
@@ -44,6 +43,9 @@ class ProxyConnection(object):
 class ProxyServer(object):
     def __init__(self, addr):
         self.address = addr
+        log.debug(
+            "ProxyServer - Listening on address... {}".format(self.address)
+        )
 
         self.listensock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.listensock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -89,6 +91,15 @@ class ProxyServer(object):
                         except:
                             data = ""
                         pr = self.connections[s]
+
+                        log.warning(
+                            "ProxyServer - DATA RECEIVED FROM COVERT {} size={} connection_id={}".format(
+                                pr.server_address,
+                                len(data),
+                                pr.conid,
+                            )
+                        )
+
                         if len(data) == 0:
                             self.communicate(pr.clientid, pr.conid, "F", data)
                             self.deactivateRead(self.revcon[pr.conid])
@@ -102,6 +113,7 @@ class ProxyServer(object):
         self.sock = None
 
     def addDATA(self, data):
+        log.debug("ProxyServer - data={}".format(data))
         self.datacarry += data
         flag = True
 
@@ -114,11 +126,22 @@ class ProxyServer(object):
             if size + 21 <= len(self.datacarry):
                 newpkt = self.datacarry[21 : size + 21]
                 # print ("DATA ",cmd," size",size)
-                log.debug("cmd={} size={}".format(cmd, size))
+                log.warning(
+                    "ProxyServer - GET COMMAND command={} size={}".format(
+                        cmd, size
+                    )
+                )
                 try:
                     if cmd == "O":
                         try:
                             sockid = newpkt[:16]
+                            log.warning(
+                                "ProxyServer - SEND DATA TO COVERT %s connection_id=`%s`",
+                                self.connections[
+                                    self.revcon[sockid]
+                                ].server_address,
+                                sockid,
+                            )
                             self.revcon[sockid].sendall(newpkt[16:])
                         except:
                             self.communicate(connid, sockid, "F", "")
@@ -136,10 +159,17 @@ class ProxyServer(object):
 
                         except:
                             # print("ERROR", newcon)
-                            log.error("newcon={}".format(newcon))
+                            log.error("ProxyServer - newcon={}".format(newcon))
                             traceback.print_exc(file=sys.stderr)
                     elif cmd == "Q":
                         sockid = newpkt[:16]
+                        log.warning(
+                            "ProxyServer - CLOSE CONNECTION TO COVERT %s connection_id=`%s`",
+                            self.connections[
+                                self.revcon[sockid]
+                            ].server_address,
+                            sockid,
+                        )
                         self.deactivateRead(self.revcon[sockid])
 
                         self.revcon[sockid].close()
@@ -182,8 +212,14 @@ class ProxyServer(object):
 
     # open a new proxy connection from the listening socket
     def communicate(self, clientid, conid, CMD, data):
-        # print("sendding command", CMD, datetime.datetime.now())
-        log.info("Sending command {}".format(CMD))
+        # print("sending command", CMD, datetime.datetime.now())
+        log.warning(
+            "ProxyServer - SEND COMMAND %s TO CLIENT connection_id=`%s` client_id=`%s`",
+            CMD,
+            conid,
+            clientid,
+        )
+        # log.debug("ProxyServer - data=\n{}".format(data))
         for c in self.clientsocks:
             c.sendall(
                 "%s%s%s%s%s"
@@ -198,7 +234,12 @@ class ProxyServer(object):
 
     def open(self, server, clientid, clid):
         # print("NEW CONNECTION %s" % server[0])
-        log.info("NEW CONNECTION {}".format(server[0]))
+        log.warning(
+            "ProxyServer - NEW CONNECTION TO COVERT %s connection_id=`%s` client_id=`%s`",
+            server,
+            clid,
+            clientid,
+        )
         conn = ProxyConnection(server, clientid)
         self.connections[conn.sock] = conn
         self.revcon[conn.conid] = conn.sock
