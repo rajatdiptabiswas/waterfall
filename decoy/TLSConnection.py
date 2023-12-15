@@ -269,7 +269,14 @@ class TLSConnection:
                         struct.pack(">I", len(pl)),
                         pl,
                     )
-                    log.info("resp={}".format(resp))
+                    log.debug("TLSConnection - resp={}".format(resp))
+                    if len(resp) > 0:
+                        log.warning(
+                            "PENDING COVERT DATA TO SEND += {}".format(
+                                len(resp)
+                            )
+                        )
+                    log.warning("TLSConnection - Covert data to send\n%s", pl)
                     self.replacepayloads.append(resp)
 
                 else:
@@ -303,10 +310,29 @@ class TLSConnection:
             self.addDATA(dec)
 
     def retrivepackets(self):
-        self.replacepayloads.extend(self.manager.getnewpackets(self.connid))
+        new_packets = self.manager.getnewpackets(self.connid)
+        if len(new_packets) > 0:
+            log.warning(
+                "PENDING COVERT DATA TO SEND += {}".format(
+                    sum(len(packet) for packet in new_packets)
+                )
+            )
+        self.replacepayloads.extend(new_packets)
 
     def getnewpayload(self, size, seq):
         self.retrivepackets()
+
+        replacepayloads_size = sum(
+            len(payload) for payload in self.replacepayloads
+        )
+
+        if replacepayloads_size > 0:
+            log.warning(
+                "PENDING COVERT DATA TO SEND =  {}".format(
+                    replacepayloads_size, self.connid
+                )
+            )
+
         if seq in self.replacedpackets:
             return self.replacedpackets[seq]
 
