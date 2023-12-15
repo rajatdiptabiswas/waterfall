@@ -7,11 +7,13 @@ if [[ $EUID -ne 0 ]]; then
 fi
 
 TIMESTAMP=$(date +%Y%m%d%H%M%S)
-HOSTNAME="wikipedia"
+HOSTNAME="example"
+# HOSTNAME="wikipedia"
 CAPTURE_OUTPUT_DIRECTORY="captures"
-CAPTURE_OUTPUT_FILE="$CAPTURE_OUTPUT_DIRECTORY/tcpdump-$TIMESTAMP-$HOSTNAME.pcap"
+CAPTURE_OUTPUT_FILE_PCAP="$CAPTURE_OUTPUT_DIRECTORY/decoy-tcpdump-$TIMESTAMP-$HOSTNAME.pcap"
+CAPTURE_OUTPUT_FILE_TXT="$CAPTURE_OUTPUT_DIRECTORY/decoy-tcpdump-$TIMESTAMP-$HOSTNAME.txt"
 LOG_OUTPUT_DIRECTORY="logs"
-LOG_OUTPUT_FILE="$LOG_OUTPUT_DIRECTORY/log-$TIMESTAMP-$HOSTNAME.log"
+LOG_OUTPUT_FILE="$LOG_OUTPUT_DIRECTORY/decoy-log-$TIMESTAMP-$HOSTNAME.log"
 INTERFACE="br0"
 
 function cleanup() {
@@ -40,15 +42,17 @@ mkdir -p $CAPTURE_OUTPUT_DIRECTORY
 mkdir -p $LOG_OUTPUT_DIRECTORY
 
 echo "Starting tcpdump..."
-tcpdump -i $INTERFACE -w $CAPTURE_OUTPUT_FILE > /dev/null 2>&1 &
-TCPDUMP_PID=$!
+tcpdump -i "$INTERFACE" -w "$CAPTURE_OUTPUT_FILE_PCAP" > /dev/null 2>&1 &
+TCPDUMP_PID_PCAP=$!
+# tcpdump -i "$INTERFACE" -X -n > "$CAPTURE_OUTPUT_FILE_TXT" 2>&1 &
+# TCPDUMP_PID_TXT=$!
 
 sleep_countdown 5
 
 echo "Starting python capturepackets.py"
-python capturepackets.py &> $LOG_OUTPUT_FILE &
+python capturepackets.py &>> $LOG_OUTPUT_FILE &
 PYTHON_PID=$!
 
-watch -n 1 "tail -n 15 $LOG_OUTPUT_FILE"
+echo "Log file $(realpath "$LOG_OUTPUT_FILE")"
 
 wait
