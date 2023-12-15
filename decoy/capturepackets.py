@@ -23,11 +23,14 @@ cache = {}
 
 import logging
 
-log = logging.getLogger(__name__)
 logging.basicConfig(
     format="%(asctime)s [%(levelname)s] <%(pathname)s:%(funcName)s> %(message)s",
-    level=logging.INFO,
+    level=logging.WARNING,
 )
+log = logging.getLogger(__name__)
+
+total_replaceable_data = 0
+total_replaced_data = 0
 
 
 def get_packet(payload):
@@ -37,6 +40,9 @@ def get_packet(payload):
         struct.unpack("!H", payload[4:6])[0]
         + struct.unpack("!I", payload[12:16])[0]
     )  # id + src
+
+    # log.info("key={}".format(key))
+
     res = cache.get(key, None)
     if res is None:
         res = IP(payload)
@@ -76,6 +82,8 @@ class Phase1Runner(threading.Thread):
             struct.unpack("!H", payload[22:24])[0],
         )
 
+        log.debug("ckey = %s", ckey)
+
         if ord(payload[9]) == 6:
             if not ckey in connections:
                 seq = struct.unpack("!I", payload[24:28])[0]
@@ -108,9 +116,11 @@ phase1.start()
 
 # @profile
 def print_and_accept(pkt):
-    global connections, tlsconnections
+    global connections, tlsconnections, total_replaceable_data, total_replaced_data
 
     payload = pkt.get_payload()
+
+    # log.debug("NetfilterQueue pkt payload=\n{}".format(payload))
 
     ckey = (
         socket.inet_ntoa(payload[12:16]),
@@ -118,6 +128,8 @@ def print_and_accept(pkt):
         struct.unpack("!H", payload[20:22])[0],
         struct.unpack("!H", payload[22:24])[0],
     )
+
+    # log.debug("ckey={}".format(ckey))
 
     # PHASE 1
     try:
@@ -140,6 +152,17 @@ def print_and_accept(pkt):
                     w = ip.IP(payload)
 
                     datasize = len(str(w.tcp.data))
+                    # log.debug("ip.IP(payload)=\n{}".format(w))
+                    log.debug("datasize={}".format(datasize))
+                    # log.debug("packet.tcp=\n{}".format(w.tcp))
+                    # log.debug(
+                    #     "packet.tcp.srcport={} packet.tcp.dstport={}".format(
+                    #         w.tcp.sport, w.tcp.dport
+                    #     )
+                    # )
+                    # log.debug("packet.tcp.data=\n{}".format(w.tcp.data))
+
+                    total_replaceable_data += datasize - 7
 
                     if datasize > 0:
                         # print 'DATA TO REPLACE'
@@ -154,6 +177,30 @@ def print_and_accept(pkt):
                             log.debug(
                                 "SENDING DATA {}".format(
                                     datetime.datetime.now()
+                                )
+                            )
+
+                            total_replaced_data += len(newpayload)
+
+                            log.debug("newpayload=\n{}".format(newpayload))
+
+                            # log.info(
+                            #     "\nreplaceable data = {}\ntotal till now = {}".format(
+                            #         datasize, total_replaceable_data
+                            #     )
+                            # )
+                            # log.info(
+                            #     "\ndata replaced = {}\ntotal till now = {}".format(
+                            #         len(newpayload), total_replaced_data
+                            #     )
+                            # )
+
+                            log.warning(
+                                "\nreplaceable = {}\nreplaced    = {}\n--- TOTAL TILL NOW ---\nreplaceable = {}\nreplaced    = {}".format(
+                                    datasize - 7,
+                                    len(newpayload),
+                                    total_replaceable_data,
+                                    total_replaced_data,
                                 )
                             )
 
