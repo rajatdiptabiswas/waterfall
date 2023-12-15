@@ -26,9 +26,12 @@ log.addHandler(hdlr)
 log.propagate = False
 
 
+RECEIVE_BYTES = 4096  # rajat - 4096 default
+
+
 class ProxyConnection(object):
     # enable a buffer on connections with this many bytes
-    MAX_BUFFER_SIZE = 1024
+    MAX_BUFFER_SIZE = 1024  # rajat - 1024 default
 
     # ProxyConnection class forwards data between a client and a destination socket
 
@@ -36,7 +39,9 @@ class ProxyConnection(object):
         self.conid = uuid.uuid4().bytes
         self.clientid = clientid
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
+        self.server_address = (
+            serv_addr  # rajat - keep track of what was connected to
+        )
         self.sock.connect(serv_addr)
 
 
@@ -79,17 +84,16 @@ class ProxyServer(object):
                     self.clientsocks.append(clientsocket)
 
                 elif s in self.clientsocks:
-                    newcon = s.recv(4096)
-
+                    newcon = s.recv(RECEIVE_BYTES)
                     self.addDATA(newcon)
 
                 else:
                     if s in self.connections:
                         try:
-                            data = s.recv(4096)
-
+                            data = s.recv(RECEIVE_BYTES)
                         except:
                             data = ""
+
                         pr = self.connections[s]
 
                         log.warning(
