@@ -2,12 +2,18 @@ __author__ = "milad"
 from scapy.all import Ether, IP, TCP
 
 
+import logging
+
+log = logging.getLogger(__name__)
+
+
 class TCPConnection:
     def __init__(self, seq):
         self.packets = {}
         self.nextseq = seq
 
     def addpacket(self, pkt):
+        log.debug("TCPConnection - pkt={}".format(pkt))
         ret = False
         if pkt[TCP].seq in self.packets and len(str(pkt[TCP].payload)) > 0:
             ret = True
