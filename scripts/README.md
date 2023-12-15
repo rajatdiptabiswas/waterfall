@@ -1,0 +1,1 @@
+Place the following `.sh` files in the home `~`directory of the Ubuntu machine.
