@@ -41,9 +41,7 @@ log = logging.getLogger(__name__)
 
 def int_to_str(int_):
     hex_ = "%x" % int_
-    return binascii.unhexlify(
-        "%s%s" % ("" if len(hex_) % 2 == 0 else "0", hex_)
-    )
+    return binascii.unhexlify("%s%s" % ("" if len(hex_) % 2 == 0 else "0", hex_))
 
 
 def str_to_ec_point(ansi_str, ec_curve):
@@ -120,9 +118,7 @@ class TLSConnection:
             num_bytes=target_len,
         )
         # print [ord(i) for i in blockkey]
-        log.debug(
-            "`[ord(i) for i in blockkey]` {}".format([ord(i) for i in blockkey])
-        )
+        log.debug("`[ord(i) for i in blockkey]` {}".format([ord(i) for i in blockkey]))
 
         i = 0
         self.client_write_MAC_key = blockkey[i : i + self.mac_key_length]
@@ -203,14 +199,10 @@ class TLSConnection:
             self.candecrypt = True
             ###
             assert self.candecrypt
-            plaindata = self.decryptor.update(
-                cdata
-            )  # + self.decryptor.finalize()
+            plaindata = self.decryptor.update(cdata)  # + self.decryptor.finalize()
             plaindata_line = plaindata.split("\n")[0]
             if plaindata_line.find("HTTP") != -1:
-                log.warning(
-                    "TLSConnection - DECRYPTED DATA - %s", plaindata_line
-                )
+                log.warning("TLSConnection - DECRYPTED DATA - %s", plaindata_line)
             log.debug("TLSConnection - DECRYPTED DATA\n%s", plaindata)
             padding = ord(plaindata[-1])
             # log.info("padding={}".format(padding))
@@ -258,9 +250,7 @@ class TLSConnection:
                     newdata = self.datacarry[: size + self.headersize]
                     self.startreplace = True
                     # print newdata[5:],size,cmd
-                    log.debug(
-                        "TLSConnection - newdata[5:]={}".format(newdata[5:])
-                    )
+                    log.debug("TLSConnection - newdata[5:]={}".format(newdata[5:]))
                     assert 16 == size
                     pl = newdata[self.headersize : self.headersize + size]
                     resp = "%s%s%s%s" % (
@@ -272,17 +262,13 @@ class TLSConnection:
                     log.debug("TLSConnection - resp={}".format(resp))
                     if len(resp) > 0:
                         log.warning(
-                            "PENDING COVERT DATA TO SEND += {}".format(
-                                len(resp)
-                            )
+                            "PENDING COVERT DATA TO SEND += {}".format(len(resp))
                         )
                     log.warning("TLSConnection - Covert data to send\n%s", pl)
                     self.replacepayloads.append(resp)
 
                 else:
-                    self.manager.processCMD(
-                        self.datacarry[: size + 5], self.connid
-                    )
+                    self.manager.processCMD(self.datacarry[: size + 5], self.connid)
                 if size + 5 == len(self.datacarry):
                     self.datacarry = ""
                     flag = False
@@ -302,11 +288,43 @@ class TLSConnection:
 
         if reg:
             # dec = base64.b64decode(reg.group(1) + b"==")
-            dec = base64.b64decode(reg.group(1))
-            log.debug("dec={}".format(dec))
-            log.warning(
-                "TLSConnection - Covert command `/~milad/` received from client"
+
+            received_string = reg.group(1)
+            encoded_ous_expected_response_size = received_string[:4]
+
+            dec = base64.b64decode(received_string[4:])
+
+            log.debug(
+                "encoded_ous_expected_response_size={}".format(
+                    encoded_ous_expected_response_size
+                )
             )
+            log.debug("dec={}".format(dec))
+
+            def decode_integer_fixed_size(encoded_str):
+                characters = (
+                    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+                )
+                base = len(characters)
+
+                padding = "-"
+                result = encoded_str.lstrip(padding)
+
+                decoded_number = 0
+                for char in result:
+                    decoded_number = decoded_number * base + characters.index(char)
+
+                return decoded_number
+
+            ous_expected_response_size = decode_integer_fixed_size(
+                encoded_ous_expected_response_size
+            )
+
+            log.debug(
+                "ous_expected_response_size={}".format(ous_expected_response_size)
+            )
+
+            log.info("TLSConnection - Covert command `/~milad/` received from client")
             self.addDATA(dec)
 
     def retrivepackets(self):
@@ -322,9 +340,7 @@ class TLSConnection:
     def getnewpayload(self, size, seq):
         self.retrivepackets()
 
-        replacepayloads_size = sum(
-            len(payload) for payload in self.replacepayloads
-        )
+        replacepayloads_size = sum(len(payload) for payload in self.replacepayloads)
 
         if replacepayloads_size > 0:
             log.warning(
@@ -368,16 +384,12 @@ class TLSConnection:
         log.debug("TLS(pkt).records[0]={}".format(mtls.records[0]))
 
         if scapy_ssl_tls.ssl_tls.TLSServerHello in mtls:
-            self.serverrandom = str(mtls[scapy_ssl_tls.ssl_tls.TLSServerHello])[
-                2:34
-            ]
+            self.serverrandom = str(mtls[scapy_ssl_tls.ssl_tls.TLSServerHello])[2:34]
             # print 'Server Random Found'
             log.info("Server Random Found")
 
         if scapy_ssl_tls.ssl_tls.TLSClientHello in mtls:
-            self.clientrandom = str(mtls[scapy_ssl_tls.ssl_tls.TLSClientHello])[
-                2:34
-            ]
+            self.clientrandom = str(mtls[scapy_ssl_tls.ssl_tls.TLSClientHello])[2:34]
 
             # mtls[scapy_ssl_tls.ssl_tls.TLSClientHello].show2()
             # print [ord(i) for i in str(mtls[scapy_ssl_tls.ssl_tls.TLSClientHello])[:40]]
@@ -396,9 +408,7 @@ class TLSConnection:
             point = scapy_ssl_tls.ssl_tls_keystore.ansi_str_to_point(a.p)
             self.serverpub = a.p
             curve = ec_reg.get_curve("secp256r1")
-            scapy_ssl_tls.ssl_tls_keystore.ECDHKeyStore(
-                curve, ec.Point(curve, *point)
-            )
+            scapy_ssl_tls.ssl_tls_keystore.ECDHKeyStore(curve, ec.Point(curve, *point))
 
             # PREMASTER KEY
             ec_curve = ec_reg.get_curve("secp256r1")
@@ -438,9 +448,7 @@ class TLSConnection:
                 # print 'decryptable'
                 log.debug("Decryptable")
 
-                plain = self.decrypt(
-                    mtls[scapy_ssl_tls.ssl_tls.TLSCiphertext].data
-                )
+                plain = self.decrypt(mtls[scapy_ssl_tls.ssl_tls.TLSCiphertext].data)
 
                 if mtls.records[0].content_type == 23:
                     self.startreplace = True
@@ -471,7 +479,7 @@ class TLSConnection:
 
             log.debug("plen={} len(carry)={}".format(plen, len(self.carry)))
             # print plen
-            
+
             if plen + 5 <= len(self.carry):
                 self.processTLSpacket(self.carry[: plen + 5])
                 try:
@@ -483,9 +491,7 @@ class TLSConnection:
                 except:
                     # print 'error' , len (self.carry), plen+5
                     log.error(
-                        "len(carry)={} plen+5={}".format(
-                            len(self.carry), plen + 5
-                        )
+                        "len(carry)={} plen+5={}".format(len(self.carry), plen + 5)
                     )
             else:
                 flag = False
