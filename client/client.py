@@ -305,7 +305,7 @@ class OvertConnection(Protocol):
             else:
                 flag = False
 
-    def send(self, data, expected_response_size=None):
+    def send(self, data):
         log.info('OvertConnection - Sent request - %s', data.split('\n')[0])
         # log.info('OvertConnection - data=\n%s', data)
         self.tls_sendall(TLSPlaintext(data=data))
@@ -462,7 +462,7 @@ class OvertGateway(protocol.ClientFactory):
 
         if use_as_covert and covert_size and self._buffer.has_data():
             covert_data = self._buffer.read(covert_size)
-            wrapped_data = self.channel.wrap_message(covert_data)
+            wrapped_data = self.channel.wrap_message(covert_data, ous_expected_response_size=expected_response_size)
             log.debug(
                 "OvertGateway - Sending {} COVERT data on {}, total wrapped data size {}".format(
                     len(covert_data), self.channel.host, len(wrapped_data)
@@ -474,7 +474,7 @@ class OvertGateway(protocol.ClientFactory):
                 )
             )
             self.overt_connection.send(
-                wrapped_data, expected_response_size=expected_response_size
+                wrapped_data
             )
         else:
             log.debug(

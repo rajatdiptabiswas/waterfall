@@ -5,6 +5,25 @@ import logging
 
 log = logging.getLogger(__name__)
 
+OUS_EXPECTED_RESPONSE_SIZE_ENCODING_LENGTH = 4
+
+def encode_integer_fixed_size(number, size=OUS_EXPECTED_RESPONSE_SIZE_ENCODING_LENGTH):
+    characters = (
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+    )
+    base = len(characters)
+
+    result = ""
+    while number > 0:
+        number, remainder = divmod(number, base)
+        result = characters[remainder] + result
+
+    padding = "-"
+    padded_result = result.rjust(size, padding)
+
+    return padded_result
+
+
 class AmazonChannel:
     # host = '54.239.25.192'
     host = "54.239.26.128"
@@ -77,17 +96,26 @@ class GoogleChannel:
             "GET /search/~milad/ HTTP/1.1\r\nHOST: google.com\r\nConnection: keep-alive\r\nKeep-Alive: timeout=1200, max=1000000\r\n\r\n"
         )
 
+        overt_data_size -= OUS_EXPECTED_RESPONSE_SIZE_ENCODING_LENGTH
+
         if overt_data_size <= 0:
             return 0
 
         return int(3 * math.floor(overt_data_size / 4.0))
 
-    def wrap_message(self, data):
+    def wrap_message(self, data, ous_expected_response_size=0):
         log.debug("data={}".format(data))
-        return (
-            "GET /search/~milad/%s HTTP/1.1\r\nHOST: google.com\r\nConnection: keep-alive\r\nKeep-Alive: timeout=1200, max=1000000\r\n\r\n"
-            % base64.b64encode(data)
+        
+        encoded_ous_expected_response_size = encode_integer_fixed_size(ous_expected_response_size)
+        log.debug(
+            "ous_expected_response_size={}\nencoded_ous_expected_response_size={}".format(
+                ous_expected_response_size, encoded_ous_expected_response_size
+            )
         )
+    
+        return (
+                "GET /search/~milad/%s%s HTTP/1.1\r\nHOST: google.com\r\nConnection: keep-alive\r\nKeep-Alive: timeout=1200, max=1000000\r\n\r\n" % (encoded_ous_expected_response_size, base64.b64encode(data))
+            )
 
 
 class BingChannel:
