@@ -5,3 +5,10 @@ Crypto
 cryptography
 pyopenssl
 selenium
+pyasn1
+pycrypto
+dpkt
+service_identity
+scapy-ssl_tls
+# apt install libnetfilter-queue-dev
+netfilterqueue
