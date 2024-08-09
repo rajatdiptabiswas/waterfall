@@ -2,20 +2,20 @@
 
 
 sleep_countdown() {
-	local seconds=$1
+    local seconds=$1
 
     if [ "$seconds" -le 0 ]; then
         return
     fi
-	
-	echo "Waiting $seconds seconds..."
-	
-    for (( i=seconds; i>=1; i-- )) do
-		printf "\r%s\033[K" "$i"
-		sleep 1
-	done
 
-	printf "\r\033[K"
+    echo "Waiting $seconds seconds..."
+
+    for (( i=seconds; i>=1; i-- )) do
+        printf "\r%s\033[K" "$i"
+        sleep 1
+    done
+
+    printf "\r\033[K"
 }
 
 
