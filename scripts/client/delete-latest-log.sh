@@ -14,7 +14,7 @@ if [ ! -d "$pcap_directory" ]; then
 fi
 
 latest_log_file=$(find "$log_directory" -type f -name "*.log" -exec stat --format='%Y %n' {} \; | sort -n | tail -n 1 | awk '{print $2}')
-latest_pcap_file=$(find "$pcap_directory" -type f -name "*.pcap" -exec stat --format='%Y %n' {} \; | sort -n | tail -n 1 |  awk '{print $2}')
+latest_pcap_file=$(find "$pcap_directory" -type f -name "*.pcap" -exec stat --format='%Y %n' {} \; | sort -n | tail -n 1 | awk '{print $2}')
 
 if [ -z "$latest_log_file" ]; then
     echo "No .log files found in $log_directory"
