@@ -37,7 +37,7 @@ echo "SSH into decoy VM"
 tmux_send_keys experiment:0 "./ssh-decoy.sh" 2
 echo "Getting superuser access"
 tmux_send_keys experiment:0 "su" 2
-tmux_send_keys experiment:0 "\][/.,;'" 2
+tmux_send_keys experiment:0 "waterfall" 2
 echo "Starting decoy setup script"
 tmux_send_keys experiment:0 ". setup.sh" 0
 
@@ -48,7 +48,7 @@ tmux split-window -h -t experiment:0
 tmux_send_keys experiment:0 "cd ~" 1
 echo "Getting superuser access"
 tmux_send_keys experiment:0 "su" 2
-tmux_send_keys experiment:0 "\][/.,;'" 2
+tmux_send_keys experiment:0 "waterfall" 2
 echo "Running client setup script"
 tmux_send_keys experiment:0 ". setup.sh" 0
 
