@@ -9,3 +9,5 @@ client/captures
 client/logs
 decoy/captures
 decoy/logs
+client/py27/
+decoy/py27/
